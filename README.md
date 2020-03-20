@@ -29,6 +29,7 @@ uses a second bitmap to mark populated blocks, lazily allocating them as
 required:
 
 ```text
+	                 
 	                 ┌───┬───┬───┬───┐                       
 	      Block map: │ 0 │ 1 │ 0 │ 0 │                       
 	                 └───┴─┬─┴───┴───┘                       
