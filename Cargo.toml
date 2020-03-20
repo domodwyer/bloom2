@@ -1,0 +1,31 @@
+[package]
+name = "bloom2"
+version = "0.1.0"
+authors = ["Dom Dwyer <dom@itsallbroken.com>"]
+edition = "2018"
+
+license = "BSD-3-Clause"
+description = "Fast, compressed 2-level bloom filter"
+readme = "README.md"
+documentation = "https://docs.rs/bloom2"
+repository = "https://github.com/domodwyer/bloom2"
+keywords = ["bloom", "filter", "probabilistic", "set"]
+categories = ["caching", "compression", "data-structures"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde = { version = "1.0", optional = true, features = ["derive"] }
+
+[dev-dependencies]
+criterion = "0.3"
+quickcheck = "0.9"
+quickcheck_macros = "0.9"
+serde_json = "1.0"
+
+[[bench]]
+name = "bench"
+harness = false
+
+[lib]
+bench = false
