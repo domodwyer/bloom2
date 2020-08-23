@@ -1,11 +1,11 @@
 [package]
 name = "bloom2"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Dom Dwyer <dom@itsallbroken.com>"]
 edition = "2018"
 
 license = "BSD-3-Clause"
-description = "Fast, compressed 2-level bloom filter"
+description = "Fast, compressed 2-level bloom filter and bitmap"
 readme = "README.md"
 documentation = "https://docs.rs/bloom2"
 repository = "https://github.com/domodwyer/bloom2"

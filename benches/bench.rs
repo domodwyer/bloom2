@@ -1,37 +1,52 @@
 use bloom2::*;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
+pub fn bitmap_bench(c: &mut Criterion) {
+    let mut bloom = CompressedBitmap::new(1024);
+
+    c.bench_function("bitmap_insert_true", |b| b.iter(|| bloom.set(42, true)));
+    c.bench_function("bitmap_insert_false", |b| b.iter(|| bloom.set(42, false)));
+    c.bench_function("bitmap_lookup_hit", |b| {
+        bloom.set(42, true);
+        b.iter(|| black_box(bloom.get(42)))
+    });
+    c.bench_function("bitmap_lookup_miss, different block", |b| {
+        b.iter(|| black_box(bloom.get(1)))
+    });
+    c.bench_function("bitmap_lookup miss, same block", |b| {
+        b.iter(|| black_box(bloom.get(43)))
+    });
+}
+
 pub fn basic_bench(c: &mut Criterion) {
-    let mut bloom = CompressedBitmap::new(FilterSize::KeyBytes2);
+    let mut bloom = Bloom2::default();
 
-    c.bench_function("insert", |b| {
-        b.iter(|| bloom.insert_hash(black_box([1, 2])))
+    c.bench_function("bloom_insert", |b| b.iter(|| bloom.insert([1, 2])));
+
+    c.bench_function("bloom_lookup_hit", |b| {
+        b.iter(|| black_box(bloom.contains([1, 2])))
     });
 
-    c.bench_function("lookup hit", |b| {
-        b.iter(|| black_box(bloom.contains_hash([1, 2])))
+    c.bench_function("bloom_lookup_miss_partial match", |b| {
+        b.iter(|| black_box(bloom.contains([1, 42])))
     });
 
-    c.bench_function("lookup miss, partial match", |b| {
-        b.iter(|| black_box(bloom.contains_hash([1, 42])))
+    c.bench_function("bloom_lookup_miss_different block", |b| {
+        b.iter(|| black_box(bloom.contains([13, 42])))
     });
 
-    c.bench_function("lookup miss, different block", |b| {
-        b.iter(|| black_box(bloom.contains_hash([13, 42])))
-    });
-
-    c.bench_function("lookup miss, same block", |b| {
-        b.iter(|| black_box(bloom.contains_hash([1, 3])))
+    c.bench_function("bloom_lookup_miss_same_block", |b| {
+        b.iter(|| black_box(bloom.contains([1, 3])))
     });
 }
 
 pub fn insert_bench(c: &mut Criterion) {
-    let mut bloom = CompressedBitmap::new(FilterSize::KeyBytes2);
+    let mut bloom = Bloom2::default();
 
     // Insert an initial value to allocate at least one block
-    bloom.insert_hash([0, 1]);
+    bloom.insert([0, 1]);
 
-    c.bench_function("clone_only", |b| {
+    c.bench_function("bloom_clone_only", |b| {
         // Insert 10 hashes into the same block
         b.iter(|| {
             let bloom = bloom.clone();
@@ -39,63 +54,63 @@ pub fn insert_bench(c: &mut Criterion) {
         })
     });
 
-    c.bench_function("clone_insert_10_existing_block", |b| {
+    c.bench_function("bloom_clone_insert_10_existing_block", |b| {
         // Insert 10 hashes into the same block
         b.iter(|| {
             let mut bloom = bloom.clone();
-            black_box(bloom.insert_hash([0, 2]));
-            black_box(bloom.insert_hash([0, 3]));
-            black_box(bloom.insert_hash([0, 4]));
-            black_box(bloom.insert_hash([0, 5]));
-            black_box(bloom.insert_hash([0, 6]));
-            black_box(bloom.insert_hash([0, 7]));
-            black_box(bloom.insert_hash([0, 8]));
-            black_box(bloom.insert_hash([0, 9]));
-            black_box(bloom.insert_hash([0, 10]));
-            black_box(bloom.insert_hash([0, 11]));
+            bloom.insert([0, 2]);
+            bloom.insert([0, 3]);
+            bloom.insert([0, 4]);
+            bloom.insert([0, 5]);
+            bloom.insert([0, 6]);
+            bloom.insert([0, 7]);
+            bloom.insert([0, 8]);
+            bloom.insert([0, 9]);
+            bloom.insert([0, 10]);
+            bloom.insert([0, 11]);
         })
     });
 
-    c.bench_function("clone_insert_10_new_block_forwards", |b| {
+    c.bench_function("bloom_clone_insert_10_new_block_forwards", |b| {
         // Insert into different blocks, potentially requiring an allocation.
         //
         // Each hash produces a key > 64 away from the last, requiring a new to
         // hold it.
         b.iter(|| {
             let mut bloom = bloom.clone();
-            black_box(bloom.insert_hash([1, 2]));
-            black_box(bloom.insert_hash([2, 2]));
-            black_box(bloom.insert_hash([3, 2]));
-            black_box(bloom.insert_hash([4, 2]));
-            black_box(bloom.insert_hash([5, 2]));
-            black_box(bloom.insert_hash([6, 2]));
-            black_box(bloom.insert_hash([7, 2]));
-            black_box(bloom.insert_hash([8, 2]));
-            black_box(bloom.insert_hash([9, 2]));
-            black_box(bloom.insert_hash([10, 2]));
+            bloom.insert([1, 2]);
+            bloom.insert([2, 2]);
+            bloom.insert([3, 2]);
+            bloom.insert([4, 2]);
+            bloom.insert([5, 2]);
+            bloom.insert([6, 2]);
+            bloom.insert([7, 2]);
+            bloom.insert([8, 2]);
+            bloom.insert([9, 2]);
+            bloom.insert([10, 2]);
         });
     });
 
-    c.bench_function("clone_insert_10_new_block_backwards", |b| {
+    c.bench_function("bloom_clone_insert_10_new_block_backwards", |b| {
         // Insert into different blocks, potentially requiring an allocation.
         //
         // Each hash produces a key > 64 away from the last, requiring a new to
         // hold it.
         b.iter(|| {
             let mut bloom = bloom.clone();
-            black_box(bloom.insert_hash([10, 2]));
-            black_box(bloom.insert_hash([9, 2]));
-            black_box(bloom.insert_hash([8, 2]));
-            black_box(bloom.insert_hash([7, 2]));
-            black_box(bloom.insert_hash([6, 2]));
-            black_box(bloom.insert_hash([5, 2]));
-            black_box(bloom.insert_hash([4, 2]));
-            black_box(bloom.insert_hash([3, 2]));
-            black_box(bloom.insert_hash([2, 2]));
-            black_box(bloom.insert_hash([1, 2]));
+            bloom.insert([10, 2]);
+            bloom.insert([9, 2]);
+            bloom.insert([8, 2]);
+            bloom.insert([7, 2]);
+            bloom.insert([6, 2]);
+            bloom.insert([5, 2]);
+            bloom.insert([4, 2]);
+            bloom.insert([3, 2]);
+            bloom.insert([2, 2]);
+            bloom.insert([1, 2]);
         });
     });
 }
 
-criterion_group!(benches, basic_bench, insert_bench);
+criterion_group!(benches, basic_bench, insert_bench, bitmap_bench);
 criterion_main!(benches);

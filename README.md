@@ -6,7 +6,7 @@ empty compared to a standard bloom filter.
 * Sparse allocation grows memory usuage proportionally w.r.t filter load
 * Low overhead, fast `O(1)` lookups with amortised `O(1)` inserts
 * 32bit and 64bit safe
-* Maintains same false positive probabilities compared to standard bloom filters
+* Maintains same false positive probabilities as standard bloom filters
 * No 'unsafe' code
 
 The CompressedBitmap maintains the same false-positive properties and similar
@@ -19,9 +19,9 @@ entries increases, they are typically sized to maintain a small load factor,
 resulting in inefficient use of the underlying bitmap:
 
 ```text
-		┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐
-		│ 0 │ 0 │ 0 │ 0 │ 1 │ 0 │ 0 │ 1 │ 0 │ 0 │ 0 │ 0 │
-		└───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┘
+        ┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐
+        │ 0 │ 0 │ 0 │ 0 │ 1 │ 0 │ 0 │ 1 │ 0 │ 0 │ 0 │ 0 │
+        └───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┘
 ```
 
 This 2-level bloom filter splits the bitmap up into blocks of `usize` bits, and
