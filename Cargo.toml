@@ -9,7 +9,7 @@ description = "Fast, compressed 2-level bloom filter and bitmap"
 readme = "README.md"
 documentation = "https://docs.rs/bloom2"
 repository = "https://github.com/domodwyer/bloom2"
-keywords = ["bloom", "filter", "probabilistic", "set"]
+keywords = ["bloom", "filter", "probabilistic", "set", "bitmap"]
 categories = ["caching", "compression", "data-structures"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

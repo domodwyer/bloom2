@@ -118,8 +118,8 @@ fn key_size_to_bits(k: FilterSize) -> usize {
 /// use bloom2::Bloom2;
 ///
 /// let mut b = Bloom2::default();
-/// b.insert("hello 🐐".to_string());
-/// assert!(b.contains("hello 🐐".to_string()));
+/// b.insert("hello 🐐");
+/// assert!(b.contains("hello 🐐"));
 /// ```
 ///
 /// Initialising a `Bloom2` this way uses some [sensible
@@ -179,8 +179,8 @@ where
 	/// use bloom2::Bloom2;
 	///
 	/// let mut b = Bloom2::default();
-	/// b.insert("hello 🐐".to_string());
-	/// assert!(b.contains("hello 🐐".to_string()));
+	/// b.insert("hello 🐐");
+	/// assert!(b.contains("hello 🐐"));
 	///
 	/// let mut b = Bloom2::default();
 	/// b.insert(vec!["fox", "cat", "banana"]);
@@ -219,19 +219,11 @@ where
 
 		// Split the u64 hash into several smaller values to use as unique
 		// indexes in the bitmap.
-		//
-		// This effectively turns the single hash into multiple hashes, or k
-		// values for the bloom filter.
-		for chunk in hasher.finish().to_be_bytes().chunks(self.key_size as usize) {
-			// Convert the chunk into a usize value
-			let mut key = 0;
-			for b in chunk.iter() {
-				key <<= 8;
-				key |= *b as usize;
-			}
-
-			self.bitmap.set(key, true)
-		}
+		hasher
+			.finish()
+			.to_be_bytes()
+			.chunks(self.key_size as usize)
+            .for_each(|chunk| self.bitmap.set(bytes_to_usize_key(chunk), true));
 	}
 
 	/// Checks if `data` exists in the filter.
@@ -244,26 +236,18 @@ where
 		let mut hasher = self.hasher.build_hasher();
 		data.hash(&mut hasher);
 
-		// Split the u64 hash into several smaller values to use as unique
-		// indexes in the bitmap.
-		//
-		// This effectively turns the single hash into multiple hashes, or k
-		// values for the bloom filter.
-		for chunk in hasher.finish().to_be_bytes().chunks(self.key_size as usize) {
-			// Convert the chunk into a usize value
-			let mut key = 0;
-			for b in chunk.iter() {
-				key <<= 8;
-				key |= *b as usize;
-			}
-
-			if self.bitmap.get(key) {
-				return true;
-			}
-		}
-
-		false
+		hasher
+			.finish()
+			.to_be_bytes()
+			.chunks(self.key_size as usize)
+            .any(|chunk| self.bitmap.get(bytes_to_usize_key(chunk)))
 	}
+}
+
+fn bytes_to_usize_key<'a, I: IntoIterator<Item = &'a u8>>(bytes: I) -> usize {
+	bytes
+		.into_iter()
+        .fold(0, |key, &byte| (key << 8) | byte as usize)
 }
 
 #[cfg(test)]
