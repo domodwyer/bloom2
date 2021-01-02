@@ -3,7 +3,7 @@ use std::collections::hash_map::RandomState;
 use std::hash::{BuildHasher, Hash, Hasher};
 use std::marker::PhantomData;
 
-// TODO: AND, OR, XOR, NOT + examples
+// TODO(dom): AND, OR, XOR, NOT + examples
 
 // [`Bloom2`]: crate::bloom2::Bloom2
 // [`BloomFilterBuilder`]: crate::BloomFilterBuilder

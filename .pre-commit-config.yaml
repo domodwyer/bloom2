@@ -1,0 +1,72 @@
+# pre-commit configuration
+#
+# Uses https://pre-commit.com/
+#
+# Install with:
+#   pre-commit install -t pre-commit
+#   pre-commit install -t pre-push
+#   pre-commit install -t commit-msg
+#   pre-commit install -t post-checkout
+#
+# Requires:
+#   - rust (cargo & clippy in path)
+#   - https://github.com/commitizen-tools/commitizen
+#
+# To run manually:
+#   pre-commit run --all
+
+repos:
+  - repo: https://github.com/domodwyer/pre-commit
+    rev: v3.1.1
+    hooks:
+      - id: rust-check
+        stages: [commit, push]
+
+      - id: rust-clippy
+        args: [
+          "-D rust_2018_idioms",
+          "-D missing_debug_implementations",
+          "-D unreachable_pub",
+          "-D missing_docs",
+          "-A clippy::missing_docs_in_private_items",
+          "-D clippy::todo",
+          "-D clippy::dbg_macro",
+        ]
+        stages: [commit, push]
+  
+      - id: rust-test
+        stages: [commit, push]
+      
+      - id: todo-branch-tags
+        stages: [post-checkout]
+        args: ["[0-9]+"]
+        
+      - id: todo-tags
+        stages: [push, manual]
+        types: [rust]
+        args: ["--regex=([0-9]+|dom)"]
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v3.3.0
+    hooks:
+      - id: check-executables-have-shebangs
+        stages: [commit, manual]
+      - id: check-json
+        stages: [commit, manual]
+      - id: check-yaml
+        args: ["--allow-multiple-documents"]
+        stages: [commit, manual]
+      - id: check-merge-conflict
+        stages: [commit, manual]
+      - id: mixed-line-ending
+        args: ["--fix=no"]
+        stages: [commit, manual]
+      # - id: no-commit-to-branch
+      #   args: ["--branch", "master"]
+      #   stages: [commit]
+  
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v2.11.0
+    hooks:
+      - id: commitizen
+        stages: [commit-msg]
