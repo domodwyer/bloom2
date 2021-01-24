@@ -20,7 +20,7 @@ serde = { version = "1.0", optional = true, features = ["derive"] }
 [dev-dependencies]
 criterion = "0.3"
 quickcheck = "1.0"
-quickcheck_macros = "0.9"
+quickcheck_macros = "1.0"
 serde_json = "1.0"
 
 [[bench]]
