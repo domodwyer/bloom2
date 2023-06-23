@@ -13,8 +13,14 @@ use std::marker::PhantomData;
 /// A trait to abstract bit storage for use in a [`Bloom2`](crate::Bloom2)
 /// filter.
 pub trait Bitmap {
+    /// Set bit indexed by `key` to `value`.
     fn set(&mut self, key: usize, value: bool);
+
+    /// Return `true` if the given bit index was previously set to `true`.
     fn get(&self, key: usize) -> bool;
+
+    /// Return the size of the bitmap in bytes.
+    fn byte_size(&self) -> usize;
 }
 
 /// Construct [`Bloom2`] instances with varying parameters.
@@ -28,7 +34,7 @@ pub trait Bitmap {
 ///                     .size(FilterSize::KeyBytes2)
 ///                     .build();
 ///
-/// filter.insert("success!");
+/// filter.insert(&"success!");
 /// ```
 pub struct BloomFilterBuilder<H, B>
 where
@@ -121,7 +127,7 @@ fn key_size_to_bits(k: FilterSize) -> usize {
     (2 as usize).pow(8 * k as u32)
 }
 
-/// A fast, memory efficient bloom filter.
+/// A fast, memory efficient, sparse bloom filter.
 ///
 /// Most users can quickly initialise a `Bloom2` instance by calling
 /// `Bloom2::default()` and start inserting anything that implements the
@@ -131,8 +137,8 @@ fn key_size_to_bits(k: FilterSize) -> usize {
 /// use bloom2::Bloom2;
 ///
 /// let mut b = Bloom2::default();
-/// b.insert("hello 🐐");
-/// assert!(b.contains("hello 🐐"));
+/// b.insert(&"hello 🐐");
+/// assert!(b.contains(&"hello 🐐"));
 /// ```
 ///
 /// Initialising a `Bloom2` this way uses some [sensible
@@ -141,6 +147,12 @@ fn key_size_to_bits(k: FilterSize) -> usize {
 /// lookup, change the hashing algorithm, memory size of the filter, etc, a
 /// [`BloomFilterBuilder`] can be used to initialise a `Bloom2` instance with
 /// the desired properties.
+///
+/// The sparse nature of this filter trades a small amount of insert performance
+/// for decreased memory usage. For filters initialised infrequently and held
+/// for a meaningful duration of time, this is almost always worth the
+/// marginally increased insert latency. When testing performance, be sure to
+/// use a release build - there's a significant performance difference!
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Bloom2<H, B, T>
@@ -163,7 +175,7 @@ where
 /// use bloom2::BloomFilterBuilder;
 ///
 /// let mut b = BloomFilterBuilder::default().build();
-/// # b.insert(42);
+/// # b.insert(&42);
 /// ```
 impl<T> std::default::Default for Bloom2<RandomState, CompressedBitmap, T>
 where
@@ -185,6 +197,8 @@ where
     /// Any subsequent calls to [`contains`](Bloom2::contains) for the same
     /// `data` will always return true.
     ///
+    /// Insertion is significantly faster in release builds.
+    ///
     /// The `data` provided can be anything that implements the [`Hash`] trait,
     /// for example:
     ///
@@ -192,17 +206,17 @@ where
     /// use bloom2::Bloom2;
     ///
     /// let mut b = Bloom2::default();
-    /// b.insert("hello 🐐");
-    /// assert!(b.contains("hello 🐐"));
+    /// b.insert(&"hello 🐐");
+    /// assert!(b.contains(&"hello 🐐"));
     ///
     /// let mut b = Bloom2::default();
-    /// b.insert(vec!["fox", "cat", "banana"]);
-    /// assert!(b.contains(vec!["fox", "cat", "banana"]));
+    /// b.insert(&vec!["fox", "cat", "banana"]);
+    /// assert!(b.contains(&vec!["fox", "cat", "banana"]));
     ///
     /// let mut b = Bloom2::default();
     /// let data: [u8; 4] = [1, 2, 3, 42];
-    /// b.insert(data);
-    /// assert!(b.contains(data));
+    /// b.insert(&data);
+    /// assert!(b.contains(&data));
     /// ```
     ///
     /// As well as structs if they implement the [`Hash`] trait, which be
@@ -222,10 +236,10 @@ where
     ///     email: "dom@itsallbroken.com".to_string(),
     /// };
     ///
-    /// b.insert(&user);
-    /// assert!(b.contains(&user));
+    /// b.insert(&&user);
+    /// assert!(b.contains(&&user));
     /// ```
-    pub fn insert(&mut self, data: T) {
+    pub fn insert(&mut self, data: &'_ T) {
         // Generate a hash (u64) value for data
         let mut hasher = self.hasher.build_hasher();
         data.hash(&mut hasher);
@@ -244,7 +258,7 @@ where
     /// If `contains` returns true, `hash` has **probably** been inserted
     /// previously. If `contains` returns false, `hash` has **definitely not**
     /// been inserted into the filter.
-    pub fn contains(&mut self, data: T) -> bool {
+    pub fn contains(&mut self, data: &'_ T) -> bool {
         // Generate a hash (u64) value for data
         let mut hasher = self.hasher.build_hasher();
         data.hash(&mut hasher);
@@ -255,8 +269,23 @@ where
             .chunks(self.key_size as usize)
             .any(|chunk| self.bitmap.get(bytes_to_usize_key(chunk)))
     }
+
+    /// Return the byte size of this filter.
+    pub fn byte_size(&mut self) -> usize {
+        self.bitmap.byte_size()
+    }
 }
 
+impl<H, T> Bloom2<H, CompressedBitmap, T>
+where
+    H: BuildHasher,
+{
+    /// Minimise the memory usage of this instance by by shrinking the
+    /// underlying vectors, discarding their excess capacity.
+    pub fn shrink_to_fit(&mut self) {
+        self.bitmap.shrink_to_fit();
+    }
+}
 fn bytes_to_usize_key<'a, I: IntoIterator<Item = &'a u8>>(bytes: I) -> usize {
     bytes
         .into_iter()
@@ -301,6 +330,9 @@ mod tests {
             self.get_calls.borrow_mut().push(key);
             false
         }
+        fn byte_size(&self) -> usize {
+            42
+        }
     }
 
     fn new_test_bloom<T: Hash>() -> Bloom2<MockHasher, MockBitmap, T> {
@@ -317,19 +349,19 @@ mod tests {
         let mut b = Bloom2::default();
         assert_eq!(b.key_size, FilterSize::KeyBytes2);
 
-        b.insert(42);
-        assert!(b.contains(42));
+        b.insert(&42);
+        assert!(b.contains(&42));
     }
 
     #[quickcheck]
     fn test_default_prop(vals: Vec<u16>) {
         let mut b = Bloom2::default();
         for v in &vals {
-            b.insert(*v);
+            b.insert(&*v);
         }
 
         for v in &vals {
-            assert!(b.contains(*v));
+            assert!(b.contains(&*v));
         }
     }
 
@@ -338,7 +370,7 @@ mod tests {
         let mut b = new_test_bloom();
         b.hasher.return_hash = 12345678901234567890;
 
-        b.insert([1, 2, 3, 4]);
+        b.insert(&[1, 2, 3, 4]);
         assert_eq!(
             b.bitmap.set_calls,
             vec![
@@ -353,7 +385,7 @@ mod tests {
             ]
         );
 
-        b.contains([1, 2, 3, 4]);
+        b.contains(&[1, 2, 3, 4]);
         assert_eq!(
             b.bitmap.get_calls.into_inner(),
             vec![171, 84, 169, 140, 235, 31, 10, 210]
@@ -366,7 +398,7 @@ mod tests {
         b.key_size = FilterSize::KeyBytes2;
         b.hasher.return_hash = 12345678901234567890;
 
-        b.insert([1, 2, 3, 4]);
+        b.insert(&[1, 2, 3, 4]);
 
         assert_eq!(
             b.bitmap.set_calls,
@@ -382,9 +414,25 @@ mod tests {
                 .size(FilterSize::KeyBytes4)
                 .build();
 
-        bloom_filter.insert("a");
-        bloom_filter.insert("b");
-        bloom_filter.insert("c");
-        bloom_filter.insert("d");
+        bloom_filter.insert(&"a");
+        bloom_filter.insert(&"b");
+        bloom_filter.insert(&"c");
+        bloom_filter.insert(&"d");
+    }
+
+    #[test]
+    fn test_size_shrink() {
+        let mut bloom_filter: Bloom2<RandomState, CompressedBitmap, _> =
+            BloomFilterBuilder::default()
+                .size(FilterSize::KeyBytes4)
+                .build();
+
+        for i in 0..10 {
+            bloom_filter.insert(&i);
+        }
+
+        assert_eq!(bloom_filter.byte_size(), 8388920);
+        bloom_filter.shrink_to_fit();
+        assert_eq!(bloom_filter.byte_size(), 8388824);
     }
 }
