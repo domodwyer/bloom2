@@ -1,6 +1,6 @@
 [package]
 name = "bloom2"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Dom Dwyer <dom@itsallbroken.com>"]
 edition = "2018"
 

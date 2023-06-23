@@ -258,7 +258,7 @@ where
     /// If `contains` returns true, `hash` has **probably** been inserted
     /// previously. If `contains` returns false, `hash` has **definitely not**
     /// been inserted into the filter.
-    pub fn contains(&mut self, data: &'_ T) -> bool {
+    pub fn contains(&self, data: &'_ T) -> bool {
         // Generate a hash (u64) value for data
         let mut hasher = self.hasher.build_hasher();
         data.hash(&mut hasher);
