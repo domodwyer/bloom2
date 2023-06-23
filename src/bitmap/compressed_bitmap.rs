@@ -54,7 +54,7 @@ impl CompressedBitmap {
         // max_key number of bits.
         let blocks = index_for_key(max_key);
 
-        // FIgure out how many usize elements are needed to represent blocks
+        // Figure out how many usize elements are needed to represent blocks
         // number of bitmaps.
         let num_blocks = match blocks % (mem::size_of::<usize>() * 8) {
             0 => index_for_key(blocks),

@@ -121,7 +121,7 @@ fn key_size_to_bits(k: FilterSize) -> usize {
     (2 as usize).pow(8 * k as u32)
 }
 
-/// A fast, memory efficient bloom filter.
+/// A fast, memory efficient, sparse bloom filter.
 ///
 /// Most users can quickly initialise a `Bloom2` instance by calling
 /// `Bloom2::default()` and start inserting anything that implements the
@@ -141,6 +141,12 @@ fn key_size_to_bits(k: FilterSize) -> usize {
 /// lookup, change the hashing algorithm, memory size of the filter, etc, a
 /// [`BloomFilterBuilder`] can be used to initialise a `Bloom2` instance with
 /// the desired properties.
+///
+/// The sparse nature of this filter trades a small amount of insert performance
+/// for decreased memory usage. For filters initialised infrequently and held
+/// for a meaningful duration of time, this is almost always worth the
+/// marginally increased insert latency. When testing performance, be sure to
+/// use a release build - there's a significant performance difference!
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Bloom2<H, B, T>
@@ -184,6 +190,8 @@ where
     ///
     /// Any subsequent calls to [`contains`](Bloom2::contains) for the same
     /// `data` will always return true.
+    ///
+    /// Insertion is significantly faster in release builds.
     ///
     /// The `data` provided can be anything that implements the [`Hash`] trait,
     /// for example:
