@@ -28,7 +28,7 @@ pub trait Bitmap {
 ///                     .size(FilterSize::KeyBytes2)
 ///                     .build();
 ///
-/// filter.insert("success!");
+/// filter.insert(&"success!");
 /// ```
 pub struct BloomFilterBuilder<H, B>
 where
@@ -131,8 +131,8 @@ fn key_size_to_bits(k: FilterSize) -> usize {
 /// use bloom2::Bloom2;
 ///
 /// let mut b = Bloom2::default();
-/// b.insert("hello 🐐");
-/// assert!(b.contains("hello 🐐"));
+/// b.insert(&"hello 🐐");
+/// assert!(b.contains(&"hello 🐐"));
 /// ```
 ///
 /// Initialising a `Bloom2` this way uses some [sensible
@@ -169,7 +169,7 @@ where
 /// use bloom2::BloomFilterBuilder;
 ///
 /// let mut b = BloomFilterBuilder::default().build();
-/// # b.insert(42);
+/// # b.insert(&42);
 /// ```
 impl<T> std::default::Default for Bloom2<RandomState, CompressedBitmap, T>
 where
@@ -200,17 +200,17 @@ where
     /// use bloom2::Bloom2;
     ///
     /// let mut b = Bloom2::default();
-    /// b.insert("hello 🐐");
-    /// assert!(b.contains("hello 🐐"));
+    /// b.insert(&"hello 🐐");
+    /// assert!(b.contains(&"hello 🐐"));
     ///
     /// let mut b = Bloom2::default();
-    /// b.insert(vec!["fox", "cat", "banana"]);
-    /// assert!(b.contains(vec!["fox", "cat", "banana"]));
+    /// b.insert(&vec!["fox", "cat", "banana"]);
+    /// assert!(b.contains(&vec!["fox", "cat", "banana"]));
     ///
     /// let mut b = Bloom2::default();
     /// let data: [u8; 4] = [1, 2, 3, 42];
-    /// b.insert(data);
-    /// assert!(b.contains(data));
+    /// b.insert(&data);
+    /// assert!(b.contains(&data));
     /// ```
     ///
     /// As well as structs if they implement the [`Hash`] trait, which be
@@ -230,10 +230,10 @@ where
     ///     email: "dom@itsallbroken.com".to_string(),
     /// };
     ///
-    /// b.insert(&user);
-    /// assert!(b.contains(&user));
+    /// b.insert(&&user);
+    /// assert!(b.contains(&&user));
     /// ```
-    pub fn insert(&mut self, data: T) {
+    pub fn insert(&mut self, data: &'_ T) {
         // Generate a hash (u64) value for data
         let mut hasher = self.hasher.build_hasher();
         data.hash(&mut hasher);
@@ -252,7 +252,7 @@ where
     /// If `contains` returns true, `hash` has **probably** been inserted
     /// previously. If `contains` returns false, `hash` has **definitely not**
     /// been inserted into the filter.
-    pub fn contains(&mut self, data: T) -> bool {
+    pub fn contains(&mut self, data: &'_ T) -> bool {
         // Generate a hash (u64) value for data
         let mut hasher = self.hasher.build_hasher();
         data.hash(&mut hasher);
@@ -325,19 +325,19 @@ mod tests {
         let mut b = Bloom2::default();
         assert_eq!(b.key_size, FilterSize::KeyBytes2);
 
-        b.insert(42);
-        assert!(b.contains(42));
+        b.insert(&42);
+        assert!(b.contains(&42));
     }
 
     #[quickcheck]
     fn test_default_prop(vals: Vec<u16>) {
         let mut b = Bloom2::default();
         for v in &vals {
-            b.insert(*v);
+            b.insert(&*v);
         }
 
         for v in &vals {
-            assert!(b.contains(*v));
+            assert!(b.contains(&*v));
         }
     }
 
@@ -346,7 +346,7 @@ mod tests {
         let mut b = new_test_bloom();
         b.hasher.return_hash = 12345678901234567890;
 
-        b.insert([1, 2, 3, 4]);
+        b.insert(&[1, 2, 3, 4]);
         assert_eq!(
             b.bitmap.set_calls,
             vec![
@@ -361,7 +361,7 @@ mod tests {
             ]
         );
 
-        b.contains([1, 2, 3, 4]);
+        b.contains(&[1, 2, 3, 4]);
         assert_eq!(
             b.bitmap.get_calls.into_inner(),
             vec![171, 84, 169, 140, 235, 31, 10, 210]
@@ -374,7 +374,7 @@ mod tests {
         b.key_size = FilterSize::KeyBytes2;
         b.hasher.return_hash = 12345678901234567890;
 
-        b.insert([1, 2, 3, 4]);
+        b.insert(&[1, 2, 3, 4]);
 
         assert_eq!(
             b.bitmap.set_calls,
@@ -390,9 +390,9 @@ mod tests {
                 .size(FilterSize::KeyBytes4)
                 .build();
 
-        bloom_filter.insert("a");
-        bloom_filter.insert("b");
-        bloom_filter.insert("c");
-        bloom_filter.insert("d");
+        bloom_filter.insert(&"a");
+        bloom_filter.insert(&"b");
+        bloom_filter.insert(&"c");
+        bloom_filter.insert(&"d");
     }
 }
