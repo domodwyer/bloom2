@@ -77,6 +77,12 @@ impl CompressedBitmap {
         }
     }
 
+    pub fn size(&self) -> usize {
+        (self.block_map.capacity() * std::mem::size_of::<usize>())
+            + (self.bitmap.capacity() * std::mem::size_of::<usize>())
+            + std::mem::size_of_val(self)
+    }
+
     /// Reduces the allocated memory usage of the filter to the minimum required
     /// for the current filter contents.
     ///
@@ -85,7 +91,8 @@ impl CompressedBitmap {
     ///
     /// See [`Vec::shrink_to_fit`](std::vec::Vec::shrink_to_fit).
     pub fn shrink_to_fit(&mut self) {
-        self.bitmap.shrink_to_fit()
+        self.bitmap.shrink_to_fit();
+        self.block_map.shrink_to_fit();
         // TODO: remove 0 blocks
     }
 
@@ -276,6 +283,10 @@ impl Bitmap for CompressedBitmap {
 
     fn set(&mut self, key: usize, value: bool) {
         self.set(key, value)
+    }
+
+    fn byte_size(&self) -> usize {
+        self.size()
     }
 }
 

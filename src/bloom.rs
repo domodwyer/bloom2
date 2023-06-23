@@ -13,8 +13,14 @@ use std::marker::PhantomData;
 /// A trait to abstract bit storage for use in a [`Bloom2`](crate::Bloom2)
 /// filter.
 pub trait Bitmap {
+    /// Set bit indexed by `key` to `value`.
     fn set(&mut self, key: usize, value: bool);
+
+    /// Return `true` if the given bit index was previously set to `true`.
     fn get(&self, key: usize) -> bool;
+
+    /// Return the size of the bitmap in bytes.
+    fn byte_size(&self) -> usize;
 }
 
 /// Construct [`Bloom2`] instances with varying parameters.
@@ -263,8 +269,23 @@ where
             .chunks(self.key_size as usize)
             .any(|chunk| self.bitmap.get(bytes_to_usize_key(chunk)))
     }
+
+    /// Return the byte size of this filter.
+    pub fn byte_size(&mut self) -> usize {
+        self.bitmap.byte_size()
+    }
 }
 
+impl<H, T> Bloom2<H, CompressedBitmap, T>
+where
+    H: BuildHasher,
+{
+    /// Minimise the memory usage of this instance by by shrinking the
+    /// underlying vectors, discarding their excess capacity.
+    pub fn shrink_to_fit(&mut self) {
+        self.bitmap.shrink_to_fit();
+    }
+}
 fn bytes_to_usize_key<'a, I: IntoIterator<Item = &'a u8>>(bytes: I) -> usize {
     bytes
         .into_iter()
@@ -308,6 +329,9 @@ mod tests {
         fn get(&self, key: usize) -> bool {
             self.get_calls.borrow_mut().push(key);
             false
+        }
+        fn byte_size(&self) -> usize {
+            42
         }
     }
 
@@ -394,5 +418,21 @@ mod tests {
         bloom_filter.insert(&"b");
         bloom_filter.insert(&"c");
         bloom_filter.insert(&"d");
+    }
+
+    #[test]
+    fn test_size_shrink() {
+        let mut bloom_filter: Bloom2<RandomState, CompressedBitmap, _> =
+            BloomFilterBuilder::default()
+                .size(FilterSize::KeyBytes4)
+                .build();
+
+        for i in 0..10 {
+            bloom_filter.insert(&i);
+        }
+
+        assert_eq!(bloom_filter.byte_size(), 8388920);
+        bloom_filter.shrink_to_fit();
+        assert_eq!(bloom_filter.byte_size(), 8388824);
     }
 }
