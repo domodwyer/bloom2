@@ -296,7 +296,7 @@ fn bytes_to_usize_key<'a, I: IntoIterator<Item = &'a u8>>(bytes: I) -> usize {
 mod tests {
     use super::*;
     use quickcheck_macros::quickcheck;
-    use std::cell::RefCell;
+    use std::{cell::RefCell, hash::BuildHasherDefault};
 
     #[derive(Debug, Clone, Default)]
     struct MockHasher {
@@ -434,5 +434,25 @@ mod tests {
         assert_eq!(bloom_filter.byte_size(), 8388920);
         bloom_filter.shrink_to_fit();
         assert_eq!(bloom_filter.byte_size(), 8388824);
+    }
+
+    #[test]
+    fn set_hasher() {
+        let mut bloom_filter: Bloom2<
+            BuildHasherDefault<twox_hash::XxHash64>,
+            CompressedBitmap,
+            i32,
+        > = BloomFilterBuilder::default()
+            .hasher(BuildHasherDefault::<twox_hash::XxHash64>::default())
+            .size(FilterSize::KeyBytes4)
+            .build();
+
+        for i in 0..10 {
+            bloom_filter.insert(&i);
+        }
+
+        for i in 0..10 {
+            assert!(bloom_filter.contains(&i), "did not contain {}", i);
+        }
     }
 }
