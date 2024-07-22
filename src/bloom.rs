@@ -170,6 +170,7 @@ where
     H: BuildHasher,
     B: Bitmap,
 {
+    #[cfg_attr(feature = "serde", serde(skip))]
     hasher: H,
     bitmap: B,
     key_size: FilterSize,
@@ -526,6 +527,31 @@ mod tests {
         for v in &control {
             let input_maybe_contains = bitmap_a.contains(v) || bitmap_b.contains(v);
             assert_eq!(input_maybe_contains, merged.contains(v));
+        }
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn serde() {
+        type MyBuildHasher = BuildHasherDefault<twox_hash::XxHash64>;
+
+        let mut bloom_filter: Bloom2<MyBuildHasher, CompressedBitmap, i32> =
+            BloomFilterBuilder::hasher(MyBuildHasher::default())
+                .size(FilterSize::KeyBytes4)
+                .build();
+
+        for i in 0..10 {
+            bloom_filter.insert(&i);
+        }
+
+        let encoded = serde_json::to_string(&bloom_filter).unwrap();
+        let decoded: Bloom2<MyBuildHasher, CompressedBitmap, i32> =
+            serde_json::from_str(&encoded).unwrap();
+
+        assert_eq!(bloom_filter.bitmap, decoded.bitmap);
+
+        for i in 0..10 {
+            assert!(decoded.contains(&i), "didn't contain {}", i);
         }
     }
 }
