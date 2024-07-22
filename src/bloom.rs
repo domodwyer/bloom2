@@ -29,8 +29,7 @@ pub trait Bitmap {
 /// use std::collections::hash_map::RandomState;
 /// use bloom2::{BloomFilterBuilder, FilterSize};
 ///
-/// let mut filter = BloomFilterBuilder::default()
-///                     .hasher(RandomState::default())
+/// let mut filter = BloomFilterBuilder::hasher(RandomState::default())
 ///                     .size(FilterSize::KeyBytes2)
 ///                     .build();
 ///
@@ -69,11 +68,6 @@ where
     H: BuildHasher,
     B: Bitmap,
 {
-    /// Set the hash algorithm.
-    pub fn hasher(self, hasher: H) -> Self {
-        Self { hasher, ..self }
-    }
-
     /// Set the bit storage (bitmap) for the bloom filter.
     ///
     /// # Safety
@@ -119,6 +113,19 @@ where
             key_size: size,
             bitmap: CompressedBitmap::new(key_size_to_bits(size)),
             ..self
+        }
+    }
+
+    /// Initialise a `BloomFilterBuilder` that unless changed, will construct a
+    /// `Bloom2` instance using a [2 byte key] and use the specified hasher.
+    ///
+    /// [2 byte key]: crate::FilterSize::KeyBytes2
+    pub fn hasher(hasher: H) -> Self {
+        let size = FilterSize::KeyBytes2;
+        Self {
+            hasher,
+            bitmap: CompressedBitmap::new(key_size_to_bits(size)),
+            key_size: size,
         }
     }
 }
@@ -442,8 +449,7 @@ mod tests {
             BuildHasherDefault<twox_hash::XxHash64>,
             CompressedBitmap,
             i32,
-        > = BloomFilterBuilder::default()
-            .hasher(BuildHasherDefault::<twox_hash::XxHash64>::default())
+        > = BloomFilterBuilder::hasher(BuildHasherDefault::<twox_hash::XxHash64>::default())
             .size(FilterSize::KeyBytes4)
             .build();
 
