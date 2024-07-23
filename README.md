@@ -29,18 +29,18 @@ uses a second bitmap to mark populated blocks, lazily allocating them as
 required:
 
 ```text
-	                 
-	                 ┌───┬───┬───┬───┐                       
-	      Block map: │ 0 │ 1 │ 0 │ 0 │                       
-	                 └───┴─┬─┴───┴───┘                       
-	                       └──────┐                          
+
+	                 ┌───┬───┬───┬───┐
+	      Block map: │ 0 │ 1 │ 0 │ 0 │
+	                 └───┴─┬─┴───┴───┘
+	                       └──────┐
 	    ┌ ─ ┬ ─ ┬ ─ ┬ ─ ┐ ┌───┬───▼───┬───┐ ┌ ─ ┬ ─ ┬ ─ ┬ ─ ┐
-	      0   0   0   0   │ 1 │ 0 │ 0 │ 1 │   0   0   0   0  
+	      0   0   0   0   │ 1 │ 0 │ 0 │ 1 │   0   0   0   0
 	    └ ─ ┴ ─ ┴ ─ ┴ ─ ┘ └───┴───┴───┴───┘ └ ─ ┴ ─ ┴ ─ ┴ ─ ┘
 ```
 
 Lookups for indexes that land in unpopulated blocks check the single block map
-bit and return immediately. 
+bit and return immediately.
 
 Lookups for indexes in populated blocks first check the block map bit, before
 computing the offset to the bitmap block in the bitmap array by counting the
@@ -60,3 +60,7 @@ unpopulated blocks.
 ## Serialisation
 
 Enable optional serialisation with the `serde` feature - disabled by default.
+Note that a default, derived [`Hash`] implementation is not considered portable
+but a hand-wrote implementation can be.
+
+[`Hash`]: https://doc.rust-lang.org/stable/std/hash/trait.Hash.html#portability
