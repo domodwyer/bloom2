@@ -17,12 +17,12 @@ use std::mem;
 /// the second bitmap:
 ///
 /// ```text
-///                  ┌───┬───┬───┬───┐                       
-///       Block map: │ 0 │ 1 │ 0 │ 0 │                       
-///                  └───┴─┬─┴───┴───┘                       
-///                        └──────┐                          
+///                  ┌───┬───┬───┬───┐
+///       Block map: │ 0 │ 1 │ 0 │ 0 │
+///                  └───┴─┬─┴───┴───┘
+///                        └──────┐
 ///     ┌ ─ ┬ ─ ┬ ─ ┬ ─ ┐ ┌───┬───▼───┬───┐ ┌ ─ ┬ ─ ┬ ─ ┬ ─ ┐
-///       0   0   0   0   │ 1 │ 0 │ 0 │ 1 │   0   0   0   0  
+///       0   0   0   0   │ 1 │ 0 │ 0 │ 1 │   0   0   0   0
 ///     └ ─ ┴ ─ ┴ ─ ┴ ─ ┘ └───┴───┴───┴───┘ └ ─ ┴ ─ ┴ ─ ┴ ─ ┘
 /// ```
 ///
@@ -39,6 +39,7 @@ use std::mem;
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CompressedBitmap {
+    /// LSB is 0.
     block_map: Vec<usize>,
     bitmap: Vec<usize>,
 
@@ -83,8 +84,8 @@ impl CompressedBitmap {
             + std::mem::size_of_val(self)
     }
 
-    /// Reduces the allocated memory usage of the filter to the minimum required
-    /// for the current filter contents.
+    /// Reduces the allocated memory usage of the bitmap to the minimum required
+    /// for the current bitmap contents.
     ///
     /// This is useful to minimise the memory footprint of a populated,
     /// read-only CompressedBitmap.
@@ -96,9 +97,9 @@ impl CompressedBitmap {
         // TODO: remove 0 blocks
     }
 
-    /// Resets the state of the filter.
+    /// Resets the state of the bitmap.
     ///
-    /// An efficient way to remove all elements in the filter to allow it to be
+    /// An efficient way to remove all elements in the bitmap to allow it to be
     /// reused. Does not shrink the allocated backing memory, instead retaining
     /// the capacity to avoid reallocations.
     pub fn clear(&mut self) {
@@ -108,7 +109,7 @@ impl CompressedBitmap {
         self.bitmap.truncate(0);
     }
 
-    /// Inserts `key` into the filter.
+    /// Inserts `key` into the bitmap.
     ///
     /// # Panics
     ///
@@ -147,12 +148,12 @@ impl CompressedBitmap {
         let block_index = index_for_key(key);
 
         // Because the blocks are initialised lazily to provide the sparse
-        // filter behaviour, there may be no block yet allocated for this
-        // bitmap index. The block_map data structure is itself bitmap with
-        // a 1 bit indicating the block has been allocated.
+        // bitmap behaviour, there may be no block yet allocated for this bitmap
+        // index. The block_map data structure is itself bitmap with a 1 bit
+        // indicating the block has been allocated.
         //
-        // Check which usize in the block_map contains the bit representing
-        // the block.
+        // Check which usize in the block_map contains the bit representing the
+        // block.
         //
         //            Block Map:
         //
