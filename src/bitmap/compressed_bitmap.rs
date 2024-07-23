@@ -121,7 +121,6 @@ impl CompressedBitmap {
     /// values of `key` that are only slightly larger than `max_key` for
     /// performance reasons.
     pub fn set(&mut self, key: usize, value: bool) {
-        #[cfg(debug_assertions)]
         debug_assert!(key <= self.max_key, "key {} > {} max", key, self.max_key);
 
         // First compute the index of the bit in the bitmap if it was fully
@@ -275,6 +274,129 @@ impl CompressedBitmap {
 
         self.bitmap[offset] & bitmask_for_key(key) != 0
     }
+
+    /// Perform a bitwise OR against `self` and `other`, returning the
+    /// resulting merged [`CompressedBitmap`].
+    ///
+    /// # Panics
+    ///
+    /// This method panics if `other` was not configured with the same
+    /// `max_key`.
+    pub fn or(&self, other: &Self) -> Self {
+        debug_assert_eq!(self.max_key, other.max_key);
+
+        // Invariant: the block maps are of equal length, meaning the zipped
+        // iters yield both sides to completion.
+        assert_eq!(self.block_map.len(), other.block_map.len());
+
+        let left = BlockMapIter::new(self);
+        let right = BlockMapIter::new(other);
+
+        // Construct the physical set of compressed bitmap blocks.
+        //
+        // By iterating over the non-empty logical blocks and OR-ing them
+        // together (or picking one if only one is non-empty) the merged output
+        // of both compressed bitmaps is computed (itself compressed).
+        let bitmap = left
+            .zip(right)
+            .filter_map(|(l, r)| {
+                Some(match (l, r) {
+                    (None, None) => return None,
+                    (None, Some(r)) => other.bitmap[r],
+                    (Some(l), None) => self.bitmap[l],
+                    (Some(l), Some(r)) => self.bitmap[l] | other.bitmap[r],
+                })
+            })
+            .collect::<Vec<_>>();
+
+        // Then merge the two bitmap blocks, the OR of which is guaranteed to
+        // contain exactly N set bits for the N blocks in "physical".
+        let block_map = self
+            .block_map
+            .iter()
+            .zip(&other.block_map)
+            .map(|(l, r)| l | r)
+            .collect::<Vec<_>>();
+
+        // Invariant: The number of set bits in the block map must match the
+        // number of blocks in the bitmap.
+        debug_assert_eq!(
+            block_map.iter().map(|v| v.count_ones()).sum::<u32>() as usize,
+            bitmap.len()
+        );
+
+        Self {
+            block_map,
+            bitmap,
+            max_key: self.max_key,
+        }
+    }
+}
+
+/// Yields the 0-indexed physical indexes into the sparse bitmap for non-empty
+/// blocks.
+///
+/// If for the Nth call to `next()` the Nth sparse bitmap block is elided,
+/// [`None`] is returned. If the Nth bitmap block is non-empty, the physical
+/// index into the compressed vec is yielded.
+#[derive(Debug)]
+struct BlockMapIter<'a> {
+    bitmap: &'a CompressedBitmap,
+
+    /// The index into bitmap.block_map to be processed next (0 -> N).
+    block_idx: usize,
+    /// The bit in the block to be evaluated next (LSB -> MSB).
+    block_bit: u8,
+    /// The physical index to be yielded next.
+    physical_idx: usize,
+}
+
+impl<'a> BlockMapIter<'a> {
+    /// Construct a new [`BlockMapIter`] that yields indexes into the physical
+    /// bitmap blocks in `bitmap`.
+    fn new(bitmap: &'a CompressedBitmap) -> Self {
+        Self {
+            bitmap,
+            block_idx: 0,
+            block_bit: 0,
+            physical_idx: 0,
+        }
+    }
+}
+
+impl<'a> Iterator for BlockMapIter<'a> {
+    type Item = Option<usize>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let block = self.bitmap.block_map.get(self.block_idx as usize)?;
+
+        let v = if (block & (1 << self.block_bit)) > 0 {
+            // This logical block is non-empty.
+
+            // Read the physical index for the nth logical block.
+            let idx = self.physical_idx;
+
+            // Increment for the next physical block.
+            self.physical_idx += 1;
+
+            Some(idx)
+        } else {
+            // This logical block is empty.
+            None
+        };
+
+        // Advance the bit within the block to evaluate next.
+        self.block_bit += 1;
+
+        // Advance the block index (and wrap the bit index) if the last
+        // inspected bit was the last bit in the block.
+        if self.block_bit == usize::BITS as u8 {
+            self.block_bit = 0;
+            self.block_idx += 1;
+        }
+
+        Some(v)
+    }
 }
 
 impl Bitmap for CompressedBitmap {
@@ -352,6 +474,42 @@ mod tests {
         assert!(!b.get(42));
     }
 
+    #[test]
+    fn test_block_map_iter() {
+        let mut bitmap = CompressedBitmap::new(i16::MAX as _);
+        bitmap.set(1, true); // Block 0
+        bitmap.set(usize::BITS as usize * 4, true); // Block 4
+        bitmap.set(usize::BITS as usize * 64, true); // Block 64
+        bitmap.set(usize::BITS as usize * 65, true); // Block 65
+        bitmap.set(usize::BITS as usize * 128, true); // Block 128
+
+        let mut iter = BlockMapIter::new(&bitmap).enumerate();
+
+        assert_eq!(iter.next().unwrap(), (0, Some(0))); // The 0th block is non-empty and at physical index 0.
+        assert_eq!(iter.next().unwrap(), (1, None)); // The 1st block is all zero and elided.
+        assert_eq!(iter.next().unwrap(), (2, None)); // The 2nd block is all zero and elided.
+        assert_eq!(iter.next().unwrap(), (3, None)); // The 3rd block is all zero and elided.
+        assert_eq!(iter.next().unwrap(), (4, Some(1))); // The 4rd block is non-empty and at physical index 1.
+
+        // Filter out all the None entries, preserving the enumerated idx.
+        //
+        // This causes the iterator to yield (logical block, physical block).
+        let mut iter = iter.filter_map(|(idx, block)| match block {
+            Some(v) => Some((idx, v)),
+            None => None,
+        });
+
+        // Then the next non-empty blocks and their physical indexes:
+        assert_eq!(iter.next().unwrap(), (64, 2)); // The 64th block is non-empty and at physical index 2.
+        assert_eq!(iter.next().unwrap(), (65, 3)); // The 65th block is non-empty and at physical index 3.
+
+        // Finally the last bit!
+        assert_eq!(iter.next().unwrap(), (128, 4)); // The 128th block is non-empty and at physical index 4.
+
+        // And the iterator should terminate.
+        assert!(iter.next().is_none());
+    }
+
     #[quickcheck]
     #[should_panic]
     fn test_panic_exceeds_max(max: u16) {
@@ -373,6 +531,33 @@ mod tests {
                 b.get(i as usize) == vals.contains(&i),
                 "unexpected value {}",
                 i
+            );
+        }
+    }
+
+    #[quickcheck]
+    fn test_or(mut a: Vec<u16>, mut b: Vec<u16>) {
+        a.truncate(10);
+        let mut bitmap_a = CompressedBitmap::new(u16::MAX.into());
+        for v in &a {
+            bitmap_a.set(*v as usize, true);
+        }
+
+        b.truncate(10);
+        let mut bitmap_b = CompressedBitmap::new(u16::MAX.into());
+        for v in &b {
+            bitmap_b.set(*v as usize, true);
+        }
+
+        let merged = bitmap_a.or(&bitmap_b);
+
+        for i in 0..u16::MAX {
+            let want_hit = a.contains(&i) || b.contains(&i);
+            assert!(
+                merged.get(i as usize) == want_hit,
+                "unexpected value {} want={:?}",
+                i,
+                want_hit
             );
         }
     }
