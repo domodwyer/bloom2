@@ -60,7 +60,10 @@ unpopulated blocks.
 ## Serialisation
 
 Enable optional serialisation with the `serde` feature - disabled by default.
-Note that a default, derived [`Hash`] implementation is not considered portable
-but a hand-wrote implementation can be.
+
+Note that the use of the default `RandomHasher` yields a different bitmap that
+is not reusable in a different process; for serialised filters a different
+hasher should be used. By default, derived [`Hash`] implementation is not
+considered portable but a hand-wrote implementation can be.
 
 [`Hash`]: https://doc.rust-lang.org/stable/std/hash/trait.Hash.html#portability
