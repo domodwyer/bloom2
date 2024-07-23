@@ -411,6 +411,10 @@ impl Bitmap for CompressedBitmap {
     fn byte_size(&self) -> usize {
         self.size()
     }
+
+    fn or(&self, other: &Self) -> Self {
+        self.or(other)
+    }
 }
 
 #[inline(always)]

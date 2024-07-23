@@ -3,7 +3,7 @@ use std::collections::hash_map::RandomState;
 use std::hash::{BuildHasher, Hash, Hasher};
 use std::marker::PhantomData;
 
-// TODO(dom): AND, OR, XOR, NOT + examples
+// TODO(dom): AND, XOR, NOT + examples
 
 // [`Bloom2`]: crate::bloom2::Bloom2
 // [`BloomFilterBuilder`]: crate::BloomFilterBuilder
@@ -21,6 +21,9 @@ pub trait Bitmap {
 
     /// Return the size of the bitmap in bytes.
     fn byte_size(&self) -> usize;
+
+    /// Return the bitwise OR of both `self` and `other`.`
+    fn or(&self, other: &Self) -> Self;
 }
 
 /// Construct [`Bloom2`] instances with varying parameters.
@@ -277,6 +280,23 @@ where
             .any(|chunk| self.bitmap.get(bytes_to_usize_key(chunk)))
     }
 
+    /// Union two [`Bloom2`] instances (of identical configuration), returning
+    /// the merged combination of both.
+    ///
+    /// The returned filter will return "true" for all calls to
+    /// [`Bloom2::contains()`] for all values that would return true for one (or
+    /// both) of the inputs, and will return "false" for all values that return
+    /// false from both inputs.
+    ///
+    /// # Panics
+    ///
+    /// This method panics if the two [`Bloom2`] instances have different
+    /// configuration.
+    pub fn union(&mut self, other: &Self) {
+        assert_eq!(self.key_size, other.key_size);
+        self.bitmap = self.bitmap.or(&other.bitmap);
+    }
+
     /// Return the byte size of this filter.
     pub fn byte_size(&mut self) -> usize {
         self.bitmap.byte_size()
@@ -293,6 +313,7 @@ where
         self.bitmap.shrink_to_fit();
     }
 }
+
 fn bytes_to_usize_key<'a, I: IntoIterator<Item = &'a u8>>(bytes: I) -> usize {
     bytes
         .into_iter()
@@ -339,6 +360,10 @@ mod tests {
         }
         fn byte_size(&self) -> usize {
             42
+        }
+
+        fn or(&self, _other: &Self) -> Self {
+            unreachable!()
         }
     }
 
@@ -459,6 +484,52 @@ mod tests {
 
         for i in 0..10 {
             assert!(bloom_filter.contains(&i), "did not contain {}", i);
+        }
+    }
+
+    #[quickcheck]
+    fn test_union(mut a: Vec<usize>, mut b: Vec<usize>, mut control: Vec<usize>) {
+        // Reduce the test state space.
+        a.truncate(50);
+        b.truncate(50);
+        control.truncate(100);
+
+        let mut bitmap_a =
+            BloomFilterBuilder::hasher(BuildHasherDefault::<twox_hash::XxHash64>::default())
+                .size(FilterSize::KeyBytes2)
+                .build();
+
+        let mut bitmap_b = bitmap_a.clone();
+
+        // Populate the bitmaps to be merged.
+        for v in &a {
+            bitmap_a.insert(v);
+        }
+        for v in &b {
+            bitmap_b.insert(v);
+        }
+
+        // Merge the two bitmaps.
+        let mut merged = bitmap_a.clone();
+        merged.union(&bitmap_b);
+
+        // Invariant 1: all of the values in "a" must appear in the merged
+        // result.
+        for v in &a {
+            assert!(merged.contains(v));
+        }
+
+        // Invariant 2: all of the values in "b" must appear in the merged
+        // result.
+        for v in &b {
+            assert!(merged.contains(v));
+        }
+
+        // Invariant 3: control values that appear in neither bitmap A nor
+        // bitmap B must not appear in the merged result.
+        for v in &control {
+            let input_maybe_contains = bitmap_a.contains(v) || bitmap_b.contains(v);
+            assert_eq!(input_maybe_contains, merged.contains(v));
         }
     }
 }
