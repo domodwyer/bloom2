@@ -21,22 +21,22 @@ pub fn bitmap_bench(c: &mut Criterion) {
 pub fn basic_bench(c: &mut Criterion) {
     let mut bloom = Bloom2::default();
 
-    c.bench_function("bloom_insert", |b| b.iter(|| bloom.insert([1, 2])));
+    c.bench_function("bloom_insert", |b| b.iter(|| bloom.insert(&[1, 2])));
 
     c.bench_function("bloom_lookup_hit", |b| {
-        b.iter(|| black_box(bloom.contains([1, 2])))
+        b.iter(|| black_box(bloom.contains(&[1, 2])))
     });
 
     c.bench_function("bloom_lookup_miss_partial match", |b| {
-        b.iter(|| black_box(bloom.contains([1, 42])))
+        b.iter(|| black_box(bloom.contains(&[1, 42])))
     });
 
     c.bench_function("bloom_lookup_miss_different block", |b| {
-        b.iter(|| black_box(bloom.contains([13, 42])))
+        b.iter(|| black_box(bloom.contains(&[13, 42])))
     });
 
     c.bench_function("bloom_lookup_miss_same_block", |b| {
-        b.iter(|| black_box(bloom.contains([1, 3])))
+        b.iter(|| black_box(bloom.contains(&[1, 3])))
     });
 }
 
@@ -44,7 +44,7 @@ pub fn insert_bench(c: &mut Criterion) {
     let mut bloom = Bloom2::default();
 
     // Insert an initial value to allocate at least one block
-    bloom.insert([0, 1]);
+    bloom.insert(&[0, 1]);
 
     c.bench_function("bloom_clone_only", |b| {
         // Insert 10 hashes into the same block
@@ -58,16 +58,16 @@ pub fn insert_bench(c: &mut Criterion) {
         // Insert 10 hashes into the same block
         b.iter(|| {
             let mut bloom = bloom.clone();
-            bloom.insert([0, 2]);
-            bloom.insert([0, 3]);
-            bloom.insert([0, 4]);
-            bloom.insert([0, 5]);
-            bloom.insert([0, 6]);
-            bloom.insert([0, 7]);
-            bloom.insert([0, 8]);
-            bloom.insert([0, 9]);
-            bloom.insert([0, 10]);
-            bloom.insert([0, 11]);
+            bloom.insert(&[0, 2]);
+            bloom.insert(&[0, 3]);
+            bloom.insert(&[0, 4]);
+            bloom.insert(&[0, 5]);
+            bloom.insert(&[0, 6]);
+            bloom.insert(&[0, 7]);
+            bloom.insert(&[0, 8]);
+            bloom.insert(&[0, 9]);
+            bloom.insert(&[0, 10]);
+            bloom.insert(&[0, 11]);
         })
     });
 
@@ -78,16 +78,16 @@ pub fn insert_bench(c: &mut Criterion) {
         // hold it.
         b.iter(|| {
             let mut bloom = bloom.clone();
-            bloom.insert([1, 2]);
-            bloom.insert([2, 2]);
-            bloom.insert([3, 2]);
-            bloom.insert([4, 2]);
-            bloom.insert([5, 2]);
-            bloom.insert([6, 2]);
-            bloom.insert([7, 2]);
-            bloom.insert([8, 2]);
-            bloom.insert([9, 2]);
-            bloom.insert([10, 2]);
+            bloom.insert(&[1, 2]);
+            bloom.insert(&[2, 2]);
+            bloom.insert(&[3, 2]);
+            bloom.insert(&[4, 2]);
+            bloom.insert(&[5, 2]);
+            bloom.insert(&[6, 2]);
+            bloom.insert(&[7, 2]);
+            bloom.insert(&[8, 2]);
+            bloom.insert(&[9, 2]);
+            bloom.insert(&[10, 2]);
         });
     });
 
@@ -98,16 +98,16 @@ pub fn insert_bench(c: &mut Criterion) {
         // hold it.
         b.iter(|| {
             let mut bloom = bloom.clone();
-            bloom.insert([10, 2]);
-            bloom.insert([9, 2]);
-            bloom.insert([8, 2]);
-            bloom.insert([7, 2]);
-            bloom.insert([6, 2]);
-            bloom.insert([5, 2]);
-            bloom.insert([4, 2]);
-            bloom.insert([3, 2]);
-            bloom.insert([2, 2]);
-            bloom.insert([1, 2]);
+            bloom.insert(&[10, 2]);
+            bloom.insert(&[9, 2]);
+            bloom.insert(&[8, 2]);
+            bloom.insert(&[7, 2]);
+            bloom.insert(&[6, 2]);
+            bloom.insert(&[5, 2]);
+            bloom.insert(&[4, 2]);
+            bloom.insert(&[3, 2]);
+            bloom.insert(&[2, 2]);
+            bloom.insert(&[1, 2]);
         });
     });
 }
