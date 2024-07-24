@@ -1,6 +1,6 @@
 use crate::{bitmap::CompressedBitmap, FilterSize};
 use std::collections::hash_map::RandomState;
-use std::hash::{BuildHasher, Hash, Hasher};
+use std::hash::{BuildHasher, Hash};
 use std::marker::PhantomData;
 
 // TODO(dom): AND, XOR, NOT + examples
@@ -250,14 +250,10 @@ where
     /// assert!(b.contains(&&user));
     /// ```
     pub fn insert(&mut self, data: &'_ T) {
-        // Generate a hash (u64) value for data
-        let mut hasher = self.hasher.build_hasher();
-        data.hash(&mut hasher);
-
-        // Split the u64 hash into several smaller values to use as unique
-        // indexes in the bitmap.
-        hasher
-            .finish()
+        // Generate a hash (u64) value for data and split the u64 hash into
+        // several smaller values to use as unique indexes in the bitmap.
+        self.hasher
+            .hash_one(data)
             .to_be_bytes()
             .chunks(self.key_size as usize)
             .for_each(|chunk| self.bitmap.set(bytes_to_usize_key(chunk), true));
@@ -270,11 +266,8 @@ where
     /// been inserted into the filter.
     pub fn contains(&self, data: &'_ T) -> bool {
         // Generate a hash (u64) value for data
-        let mut hasher = self.hasher.build_hasher();
-        data.hash(&mut hasher);
-
-        hasher
-            .finish()
+        self.hasher
+            .hash_one(data)
             .to_be_bytes()
             .chunks(self.key_size as usize)
             .any(|chunk| self.bitmap.get(bytes_to_usize_key(chunk)))
@@ -324,7 +317,10 @@ fn bytes_to_usize_key<'a, I: IntoIterator<Item = &'a u8>>(bytes: I) -> usize {
 mod tests {
     use super::*;
     use quickcheck_macros::quickcheck;
-    use std::{cell::RefCell, hash::BuildHasherDefault};
+    use std::{
+        cell::RefCell,
+        hash::{BuildHasherDefault, Hasher},
+    };
 
     #[derive(Debug, Clone, Default)]
     struct MockHasher {
