@@ -66,8 +66,7 @@ impl CompressedBitmap {
         //
         // The block map contains bitmaps with 1 bits indicating the bitmap for
         // that key has been allocated.
-        let mut block_map = Vec::new();
-        block_map.resize(num_blocks, 0);
+        let block_map = vec![0; num_blocks];
 
         CompressedBitmap {
             bitmap: Vec::new(),
