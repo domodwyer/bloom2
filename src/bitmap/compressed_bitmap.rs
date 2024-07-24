@@ -121,6 +121,7 @@ impl CompressedBitmap {
     /// values of `key` that are only slightly larger than `max_key` for
     /// performance reasons.
     pub fn set(&mut self, key: usize, value: bool) {
+        #[cfg(debug_assertions)]
         debug_assert!(key <= self.max_key, "key {} > {} max", key, self.max_key);
 
         // First compute the index of the bit in the bitmap if it was fully
@@ -283,6 +284,7 @@ impl CompressedBitmap {
     /// This method panics if `other` was not configured with the same
     /// `max_key`.
     pub fn or(&self, other: &Self) -> Self {
+        #[cfg(debug_assertions)]
         debug_assert_eq!(self.max_key, other.max_key);
 
         // Invariant: the block maps are of equal length, meaning the zipped
@@ -328,6 +330,8 @@ impl CompressedBitmap {
         Self {
             block_map,
             bitmap,
+
+            #[cfg(debug_assertions)]
             max_key: self.max_key,
         }
     }
