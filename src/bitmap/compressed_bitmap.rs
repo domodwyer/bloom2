@@ -242,9 +242,9 @@ impl CompressedBitmap {
 
         // Otherwise the block map indicates the block is already allocated
         if value {
-            self.bitmap[offset as usize] |= bitmask_for_key(key);
+            self.bitmap[offset] |= bitmask_for_key(key);
         } else {
-            self.bitmap[offset as usize] &= !bitmask_for_key(key);
+            self.bitmap[offset] &= !bitmask_for_key(key);
         }
     }
 
@@ -371,7 +371,7 @@ impl<'a> Iterator for BlockMapIter<'a> {
     type Item = Option<usize>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let block = self.bitmap.block_map.get(self.block_idx as usize)?;
+        let block = self.bitmap.block_map.get(self.block_idx)?;
 
         let v = if (block & (1 << self.block_bit)) > 0 {
             // This logical block is non-empty.

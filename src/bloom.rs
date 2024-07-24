@@ -134,7 +134,7 @@ where
 }
 
 fn key_size_to_bits(k: FilterSize) -> usize {
-    (2 as usize).pow(8 * k as u32)
+    2_usize.pow(8 * k as u32)
 }
 
 /// A fast, memory efficient, sparse bloom filter.
