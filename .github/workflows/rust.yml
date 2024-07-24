@@ -19,6 +19,8 @@ jobs:
       run: cargo build --release --verbose
     - name: Run tests
       run: cargo test --verbose --all-features
+    - name: build benchmarks
+      run: cargo test --all-features --benches --no-run --verbose
 
   clippy_check:
     runs-on: ubuntu-latest
