@@ -386,11 +386,11 @@ mod tests {
     fn test_default_prop(vals: Vec<u16>) {
         let mut b = Bloom2::default();
         for v in &vals {
-            b.insert(&*v);
+            b.insert(v);
         }
 
         for v in &vals {
-            assert!(b.contains(&*v));
+            assert!(b.contains(v));
         }
     }
 
