@@ -1,0 +1,37 @@
+name: build
+
+on:
+  workflow_call:
+  pull_request:
+  push:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: rust:latest
+    steps:
+
+      - name: ensure node is installed for act
+        if: ${{ env.ACT }}
+        run: command -v node || (apt update && apt install -y nodejs zstd)
+
+      - uses: actions/checkout@v4
+
+      - name: Cache target dir
+        id: target-dir
+        uses: actions/cache@v4
+        with:
+          key: ${{ runner.os }}-target-dir
+          path: target
+
+      - name: dev
+        id: build
+        run: cargo build --all-features
+
+      - name: release
+        run: cargo build --all-features --release
+
+      - name: benchmarks
+        run: cargo test --all-features --benches --no-run
