@@ -11,6 +11,7 @@ documentation = "https://docs.rs/bloom2"
 repository = "https://github.com/domodwyer/bloom2"
 keywords = ["bloom", "filter", "probabilistic", "set", "bitmap"]
 categories = ["caching", "compression", "data-structures"]
+exclude = [".github"]
 
 [dependencies]
 serde = { version = "1.0", optional = true, features = ["derive"] }
