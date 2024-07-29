@@ -501,10 +501,7 @@ mod tests {
         // Filter out all the None entries, preserving the enumerated idx.
         //
         // This causes the iterator to yield (logical block, physical block).
-        let mut iter = iter.filter_map(|(idx, block)| match block {
-            Some(v) => Some((idx, v)),
-            None => None,
-        });
+        let mut iter = iter.filter_map(|(idx, block)| block.map(|v| (idx, v)));
 
         // Then the next non-empty blocks and their physical indexes:
         assert_eq!(iter.next().unwrap(), (64, 2)); // The 64th block is non-empty and at physical index 2.
