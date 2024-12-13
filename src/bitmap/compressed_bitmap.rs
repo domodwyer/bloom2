@@ -419,6 +419,10 @@ impl Bitmap for CompressedBitmap {
     fn or(&self, other: &Self) -> Self {
         self.or(other)
     }
+
+    fn new_with_capacity(max_key: usize) -> Self {
+        Self::new(max_key)
+    }
 }
 
 #[cfg(test)]

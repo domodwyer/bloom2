@@ -13,6 +13,10 @@ use std::marker::PhantomData;
 /// A trait to abstract bit storage for use in a [`Bloom2`](crate::Bloom2)
 /// filter.
 pub trait Bitmap {
+    /// Construct a new [`Bitmap`] impl with capacity to hold at least `max_key`
+    /// number of bits.
+    fn new_with_capacity(max_key: usize) -> Self;
+
     /// Set bit indexed by `key` to `value`.
     fn set(&mut self, key: usize, value: bool);
 
@@ -99,12 +103,7 @@ where
             _key_type: PhantomData,
         }
     }
-}
 
-impl<H> BloomFilterBuilder<H, CompressedBitmap>
-where
-    H: BuildHasher,
-{
     /// Control the in-memory size and false-positive probability of the filter.
     ///
     /// Setting the bitmap size replaces the current `Bitmap` instance with a
@@ -114,11 +113,16 @@ where
     pub fn size(self, size: FilterSize) -> Self {
         Self {
             key_size: size,
-            bitmap: CompressedBitmap::new(key_size_to_bits(size)),
+            bitmap: B::new_with_capacity(key_size_to_bits(size)),
             ..self
         }
     }
+}
 
+impl<H> BloomFilterBuilder<H, CompressedBitmap>
+where
+    H: BuildHasher,
+{
     /// Initialise a `BloomFilterBuilder` that unless changed, will construct a
     /// `Bloom2` instance using a [2 byte key] and use the specified hasher.
     ///
@@ -361,6 +365,10 @@ mod tests {
 
         fn or(&self, _other: &Self) -> Self {
             unreachable!()
+        }
+
+        fn new_with_capacity(_max_key: usize) -> Self {
+            Self::default()
         }
     }
 
