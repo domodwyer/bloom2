@@ -79,14 +79,17 @@ where
     ///
     /// # Safety
     ///
-    /// This method is `unsafe` as it is assumed `bitmap` is of a sufficient
-    /// size to hold any value in the range produced by the [key
-    /// size](FilterSize).
+    /// This method may panic if `bitmap` is too small to hold any value in the
+    /// range produced by the [key size](FilterSize).
     ///
     /// Providing a `bitmap` instance that is non-empty can be used to restore
     /// the state of a [`Bloom2`] instance (although using `serde` can achieve
     /// this safely too).
-    pub unsafe fn bitmap(self, bitmap: B, key_size: FilterSize) -> Self {
+    pub fn with_bitmap(self, bitmap: B, key_size: FilterSize) -> Self {
+        // Invariant: reading the last bit succeeds, ensuring it has sufficient
+        // capacity.
+        let _ = bitmap.get(key_size as usize);
+
         Self {
             bitmap,
             key_size,
