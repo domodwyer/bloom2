@@ -77,7 +77,7 @@ where
 {
     /// Set the bit storage (bitmap) for the bloom filter.
     ///
-    /// # Safety
+    /// # Panics
     ///
     /// This method may panic if `bitmap` is too small to hold any value in the
     /// range produced by the [key size](FilterSize).
@@ -85,7 +85,7 @@ where
     /// Providing a `bitmap` instance that is non-empty can be used to restore
     /// the state of a [`Bloom2`] instance (although using `serde` can achieve
     /// this safely too).
-    pub fn with_bitmap(self, bitmap: B, key_size: FilterSize) -> Self {
+    pub fn with_bitmap_data(self, bitmap: B, key_size: FilterSize) -> Self {
         // Invariant: reading the last bit succeeds, ensuring it has sufficient
         // capacity.
         let _ = bitmap.get(key_size as usize);
@@ -94,6 +94,17 @@ where
             bitmap,
             key_size,
             ..self
+        }
+    }
+
+    pub fn with_bitmap<U>(self) -> BloomFilterBuilder<H, U>
+    where
+        U: Bitmap,
+    {
+        BloomFilterBuilder {
+            hasher: self.hasher,
+            bitmap: U::new_with_capacity(key_size_to_bits(self.key_size)),
+            key_size: self.key_size,
         }
     }
 
@@ -352,9 +363,12 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
     use quickcheck_macros::quickcheck;
+
     use std::{
         cell::RefCell,
+        collections::HashSet,
         hash::{BuildHasherDefault, Hasher},
     };
 
@@ -591,6 +605,97 @@ mod tests {
 
         for i in 0..10 {
             assert!(decoded.contains(&i), "didn't contain {}", i);
+        }
+    }
+
+    /// Generate an arbitrary `usize` value.
+    ///
+    /// Prefers generating values from a small range to encourage collisions.
+    pub fn arbitrary_value() -> impl Strategy<Value = usize> {
+        prop_oneof![
+            5 => 0_usize..100,
+            1 => any::<usize>(),
+        ]
+    }
+
+    #[derive(Debug, Clone)]
+    pub enum Op {
+        /// Insert a random value.
+        Insert(usize),
+        /// Check a random value exists in the set.
+        Contains(usize),
+    }
+
+    pub fn arbitrary_op(s: impl Strategy<Value = usize>) -> impl Strategy<Value = Op> {
+        s.prop_flat_map(|v| prop_oneof![Just(Op::Insert(v)), Just(Op::Contains(v))])
+    }
+
+    proptest! {
+        #[test]
+        fn prop_ops_compressed_bitmap(
+            ops in prop::collection::vec(arbitrary_op(arbitrary_value()), 1..100),
+        ) {
+            run_ops_fuzz::<CompressedBitmap>(ops);
+        }
+
+        #[test]
+        fn prop_ops_vec_bitmap(
+            ops in prop::collection::vec(arbitrary_op(arbitrary_value()), 1..100),
+        ) {
+            run_ops_fuzz::<VecBitmap>(ops);
+        }
+
+        #[test]
+        fn prop_ops_compress(
+            values in prop::collection::vec(arbitrary_value(), 1..100),
+            check in prop::collection::vec(arbitrary_value(), 1..100),
+        ) {
+            let mut b = BloomFilterBuilder::default().with_bitmap::<VecBitmap>().build();
+
+            let mut control: HashSet<usize, RandomState> = HashSet::default();
+            for v in values {
+                b.insert(&v);
+                control.insert(v);
+            }
+
+            let compressed = b.clone().compress();
+
+            // Validate the control set is still contained within the
+            // now-compressed bloom filter.
+            for v in control {
+                assert!(compressed.contains(&v));
+            }
+
+            // A further set of random "check" values show equality between both
+            // the compressed and the uncompressed bitmap, ensuring equal false
+            // positive rates.
+            for v in check {
+                assert_eq!(compressed.contains(&v), b.contains(&v));
+            }
+        }
+    }
+
+    fn run_ops_fuzz<B>(ops: Vec<Op>)
+    where
+        B: Bitmap,
+    {
+        let mut b = BloomFilterBuilder::default().with_bitmap::<B>().build();
+
+        let mut control: HashSet<usize, RandomState> = HashSet::default();
+        for op in ops {
+            match op {
+                Op::Insert(v) => {
+                    b.insert(&v);
+                    control.insert(v);
+                }
+                Op::Contains(v) => {
+                    // This check cannot be an equality assert, as the bloom
+                    // filter may return a false positive.
+                    if control.contains(&v) {
+                        assert!(b.contains(&v));
+                    }
+                }
+            }
         }
     }
 }
