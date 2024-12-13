@@ -1,5 +1,5 @@
 use bloom2::*;
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 
 pub fn bitmap_bench(c: &mut Criterion) {
     let mut bloom = CompressedBitmap::new(1024);
@@ -109,6 +109,42 @@ pub fn insert_bench(c: &mut Criterion) {
             bloom.insert(&[2, 2]);
             bloom.insert(&[1, 2]);
         });
+    });
+
+    c.bench_function("bloom_vec_insert_4_000_000", |b| {
+        b.iter_batched(
+            || {
+                BloomFilterBuilder::default()
+                    .with_bitmap::<VecBitmap>()
+                    .size(bloom2::FilterSize::KeyBytes4)
+                    .build()
+            },
+            |mut bloom| {
+                for i in 0..4_000_000 {
+                    bloom.insert(black_box(&i));
+                }
+
+                black_box(bloom)
+            },
+            BatchSize::NumBatches(1),
+        )
+    });
+
+    c.bench_function("bloom_vec_convert_4_000_000", |b| {
+        let mut bloom = BloomFilterBuilder::default()
+            .with_bitmap::<VecBitmap>()
+            .size(bloom2::FilterSize::KeyBytes4)
+            .build();
+
+        for i in 0..4_000_000 {
+            bloom.insert(black_box(&i));
+        }
+
+        b.iter_batched(
+            || bloom.clone(),
+            |bloom| black_box(bloom.compress()),
+            BatchSize::NumBatches(1),
+        )
     });
 }
 
