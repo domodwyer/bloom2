@@ -1,7 +1,9 @@
 //! Bitmap implementations for the backing storage of a [`Bloom2`](crate::Bloom2).
 
 mod compressed_bitmap;
+mod vec;
 pub use compressed_bitmap::*;
+pub use vec::*;
 
 #[inline(always)]
 pub(crate) fn bitmask_for_key(key: usize) -> usize {

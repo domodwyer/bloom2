@@ -2,7 +2,7 @@ use crate::Bitmap;
 
 use super::{bitmask_for_key, index_for_key, vec::VecBitmap};
 
-/// A sparse, 2-level bitmap with a low memory footprint.
+/// A sparse, 2-level bitmap with a low memory footprint, optimised for reads.
 ///
 /// A `CompressedBitmap` splits the bitmap up into blocks of `usize` bits, and
 /// uses a second bitmap to mark populated blocks, lazily allocating them as
@@ -30,6 +30,9 @@ use super::{bitmask_for_key, index_for_key, vec::VecBitmap};
 /// This amortised `O(1)` insert operation takes ~4ns, while reading a value
 /// takes a constant time ~1ns on a Core i7 @ 2.60GHz.
 ///
+/// In practice inserting large numbers of values into a [`CompressedBitmap`]
+/// can be slow - for higher write performance, use a [`VecBitmap`] and later
+/// convert to a [`CompressedBitmap`] when possible.
 ///
 /// ## Features
 ///
