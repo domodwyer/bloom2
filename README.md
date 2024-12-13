@@ -9,7 +9,7 @@ empty compared to a standard bloom filter.
 * Maintains same false positive probabilities as standard bloom filters
 * No 'unsafe' code
 
-The CompressedBitmap maintains the same false-positive properties and similar
+The `CompressedBitmap` maintains the same false-positive properties and similar
 performance properties as a normal bloom filter while lazily initialising the
 backing memory as it is needed, resulting in smaller memory footprints for all
 except completely loaded filters.
@@ -45,7 +45,7 @@ bit and return immediately.
 Lookups for indexes in populated blocks first check the block map bit, before
 computing the offset to the bitmap block in the bitmap array by counting the
 number of 1 bits preceding it in the block map. This is highly efficient as it
-uses the `POPCNT` instruction on modern CPUs.
+uses the `POPCNT` instruction on modern CPUs when available.
 
 ## Use case
 
@@ -56,6 +56,15 @@ load in 2-level bloom filters for a significant performance improvement. The OS
 lazily loads bitmap blocks from disk as they're accessed, while the frequently
 accessed block map remains in memory to provide a fast negative response for
 unpopulated blocks.
+
+### Bulk Loading
+
+To pre-load a bloom filter with a large amount of data, prefer using the
+`VecBitmap` backing store for fast write throughput which is implemented as a
+"normal" single-level bloom filter (true `O(1)` inserts).
+
+Once loading is complete, it can be compressed to the `CompressedBitmap` storage
+type to minimise RAM usage while retaining fast reads.
 
 ## Serialisation
 
