@@ -371,7 +371,7 @@ impl<'a> BlockMapIter<'a> {
     }
 }
 
-impl<'a> Iterator for BlockMapIter<'a> {
+impl Iterator for BlockMapIter<'_> {
     type Item = Option<usize>;
 
     fn next(&mut self) -> Option<Self::Item> {
