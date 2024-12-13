@@ -1,4 +1,4 @@
-use crate::{bitmap::CompressedBitmap, FilterSize};
+use crate::{bitmap::CompressedBitmap, FilterSize, VecBitmap};
 use std::collections::hash_map::RandomState;
 use std::hash::{BuildHasher, Hash};
 use std::marker::PhantomData;
@@ -315,10 +315,38 @@ where
     }
 }
 
+impl<H, T> Bloom2<H, VecBitmap, T>
+where
+    H: BuildHasher,
+{
+    /// Compress the bitmap to reduce memory consumption.
+    ///
+    /// The compressed representation is optimised for reads, but subsequent
+    /// inserts will be slower. This reduction is `O(n)` in time, and up to
+    /// `O(2n)` in space.
+    pub fn compress(self) -> Bloom2<H, CompressedBitmap, T> {
+        Bloom2::from(self)
+    }
+}
+
 fn bytes_to_usize_key<'a, I: IntoIterator<Item = &'a u8>>(bytes: I) -> usize {
     bytes
         .into_iter()
         .fold(0, |key, &byte| (key << 8) | byte as usize)
+}
+
+impl<H, T> From<Bloom2<H, VecBitmap, T>> for Bloom2<H, CompressedBitmap, T>
+where
+    H: BuildHasher,
+{
+    fn from(v: Bloom2<H, VecBitmap, T>) -> Self {
+        Self {
+            hasher: v.hasher,
+            bitmap: CompressedBitmap::from(v.bitmap),
+            key_size: v.key_size,
+            _key_type: PhantomData,
+        }
+    }
 }
 
 #[cfg(test)]

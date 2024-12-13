@@ -428,10 +428,58 @@ impl Bitmap for CompressedBitmap {
     }
 }
 
+impl From<VecBitmap> for CompressedBitmap {
+    fn from(bitmap: VecBitmap) -> Self {
+        let (bitmap, max_key) = bitmap.into_parts();
+
+        // Calculate how many instances of usize (blocks) are needed to hold
+        // max_key number of bits.
+        let num_blocks = index_for_key(max_key);
+
+        // Figure out how many usize elements are needed to represent blocks
+        // number of bitmaps.
+        let num_blocks = match num_blocks % (u64::BITS as usize) {
+            0 => index_for_key(num_blocks),
+            _ => index_for_key(num_blocks) + 1, // +1 to cover the remainder
+        };
+
+        // Then shrink the bitmap into a 2-level compressed bitmap, dropping runs of
+        // 0 bits in the raw bitmap.
+        let mut block_map = vec![0; num_blocks];
+        let mut compressed = Vec::default();
+        for (idx, block) in bitmap.into_iter().enumerate() {
+            // If this block contains no set bits, it is elided from the compressed
+            // representation.
+            if block == 0 {
+                continue;
+            }
+
+            // This block contains data.
+            //
+            // Add the block to the compressed representation and mark it in the
+            // block map.
+            compressed.push(block);
+            block_map[index_for_key(idx)] |= bitmask_for_key(idx);
+        }
+
+        CompressedBitmap {
+            block_map,
+            bitmap: compressed,
+
+            #[cfg(debug_assertions)]
+            max_key,
+        }
+    }
+}
+
+// TODO(dom:test): proptest conversion
+
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use proptest::prelude::*;
     use quickcheck_macros::quickcheck;
+
+    use super::*;
 
     macro_rules! contains_only_truthy {
 		($bitmap:ident, $max:expr; $(
@@ -576,5 +624,28 @@ mod tests {
         let encoded = serde_json::to_string(&b).unwrap();
         let decoded: CompressedBitmap = serde_json::from_str(&encoded).unwrap();
         contains_only_truthy!(decoded, 100; 1, 3);
+    }
+
+    const MAX_KEY: usize = 1028;
+
+    proptest! {
+        #[test]
+        fn prop_compress(
+            values in prop::collection::hash_set(0..MAX_KEY, 0..20),
+        ) {
+            let mut b = VecBitmap::new_with_capacity(MAX_KEY);
+
+            for v in &values {
+                b.set(*v, true);
+            }
+
+            // Compress
+            let b = CompressedBitmap::from(b);
+
+            // Ensure all values are equal in the test range.
+            for i in 0..MAX_KEY {
+                assert_eq!(b.get(i), values.contains(&i));
+            }
+        }
     }
 }
