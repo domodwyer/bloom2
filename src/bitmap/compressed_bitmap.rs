@@ -1,5 +1,6 @@
 use crate::Bitmap;
-use std::mem;
+
+use super::{bitmask_for_key, index_for_key, vec::VecBitmap};
 
 /// A sparse, 2-level bitmap with a low memory footprint.
 ///
@@ -57,7 +58,7 @@ impl CompressedBitmap {
 
         // Figure out how many usize elements are needed to represent blocks
         // number of bitmaps.
-        let num_blocks = match blocks % (mem::size_of::<usize>() * 8) {
+        let num_blocks = match blocks % (u64::BITS as usize) {
             0 => index_for_key(blocks),
             _ => index_for_key(blocks) + 1, // +1 to cover the remainder
         };
@@ -418,16 +419,6 @@ impl Bitmap for CompressedBitmap {
     fn or(&self, other: &Self) -> Self {
         self.or(other)
     }
-}
-
-#[inline(always)]
-fn bitmask_for_key(key: usize) -> usize {
-    1 << (key % (mem::size_of::<usize>() * 8))
-}
-
-#[inline(always)]
-fn index_for_key(key: usize) -> usize {
-    key / (mem::size_of::<usize>() * 8)
 }
 
 #[cfg(test)]
