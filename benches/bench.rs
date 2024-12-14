@@ -1,3 +1,4 @@
+use std::hash::RandomState;
 use bloom2::*;
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 
@@ -14,6 +15,23 @@ pub fn bitmap_bench(c: &mut Criterion) {
         b.iter(|| black_box(bloom.get(1)))
     });
     c.bench_function("bitmap_lookup miss, same block", |b| {
+        b.iter(|| black_box(bloom.get(43)))
+    });
+}
+
+pub fn bytes_bitmap_bench(c: &mut Criterion) {
+    let mut bloom = BytesBitmap::new_with_capacity(1024);
+
+    c.bench_function("bytes_bitmap_insert_true", |b| b.iter(|| bloom.set(42, true)));
+    c.bench_function("bytes_bitmap_insert_false", |b| b.iter(|| bloom.set(42, false)));
+    c.bench_function("bytes_bitmap_lookup_hit", |b| {
+        bloom.set(42, true);
+        b.iter(|| black_box(bloom.get(42)))
+    });
+    c.bench_function("bytes_bitmap_lookup_miss, different block", |b| {
+        b.iter(|| black_box(bloom.get(1)))
+    });
+    c.bench_function("bytes_bitmap_lookup miss, same block", |b| {
         b.iter(|| black_box(bloom.get(43)))
     });
 }
@@ -114,7 +132,7 @@ pub fn insert_bench(c: &mut Criterion) {
     c.bench_function("bloom_vec_insert_4_000_000", |b| {
         b.iter_batched(
             || {
-                BloomFilterBuilder::default()
+                BloomFilterBuilder::<RandomState, VecBitmap>::default()
                     .with_bitmap::<VecBitmap>()
                     .size(bloom2::FilterSize::KeyBytes4)
                     .build()
@@ -130,8 +148,44 @@ pub fn insert_bench(c: &mut Criterion) {
         )
     });
 
+    c.bench_function("bloom_bytes_insert_4_000_000", |b| {
+        b.iter_batched(
+            || {
+                BloomFilterBuilder::<RandomState, BytesBitmap>::default()
+                    .with_bitmap::<BytesBitmap>()
+                    .size(bloom2::FilterSize::KeyBytes4)
+                    .build()
+            },
+            |mut bloom| {
+                for i in 0..4_000_000 {
+                    bloom.insert(black_box(&i));
+                }
+
+                black_box(bloom)
+            },
+            BatchSize::NumBatches(1),
+        )
+    });
+
     c.bench_function("bloom_vec_convert_4_000_000", |b| {
-        let mut bloom = BloomFilterBuilder::default()
+        let mut bloom = BloomFilterBuilder::<RandomState, VecBitmap>::default()
+            .with_bitmap::<VecBitmap>()
+            .size(bloom2::FilterSize::KeyBytes4)
+            .build();
+
+        for i in 0..4_000_000 {
+            bloom.insert(black_box(&i));
+        }
+
+        b.iter_batched(
+            || bloom.clone(),
+            |bloom| black_box(bloom.compress()),
+            BatchSize::NumBatches(1),
+        )
+    });
+
+    c.bench_function("bloom_bytes_convert_4_000_000", |b| {
+        let mut bloom = BloomFilterBuilder::<RandomState, VecBitmap>::default()
             .with_bitmap::<VecBitmap>()
             .size(bloom2::FilterSize::KeyBytes4)
             .build();
@@ -148,5 +202,5 @@ pub fn insert_bench(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, basic_bench, insert_bench, bitmap_bench);
+criterion_group!(benches, basic_bench, insert_bench, bitmap_bench, bytes_bitmap_bench);
 criterion_main!(benches);
