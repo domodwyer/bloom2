@@ -1,8 +1,7 @@
-use crate::{bitmap::CompressedBitmap, FilterSize, VecBitmap};
+use crate::{bitmap::CompressedBitmap, BytesBitmap, FilterSize, VecBitmap};
 use std::collections::hash_map::RandomState;
 use std::hash::{BuildHasher, Hash};
 use std::marker::PhantomData;
-
 // TODO(dom): AND, XOR, NOT + examples
 
 // [`Bloom2`]: crate::bloom2::Bloom2
@@ -59,12 +58,18 @@ where
 /// [2 byte key]: crate::FilterSize::KeyBytes2
 /// [`DefaultHasher`]: std::collections::hash_map::RandomState
 /// [SipHash]: https://131002.net/siphash/
-impl std::default::Default for BloomFilterBuilder<RandomState, CompressedBitmap> {
-    fn default() -> BloomFilterBuilder<RandomState, CompressedBitmap> {
+impl<B> std::default::Default for BloomFilterBuilder<RandomState, B>
+where
+    B: Bitmap,
+{
+    fn default() -> BloomFilterBuilder<RandomState, B>
+    where
+        B: Bitmap,
+    {
         let size = FilterSize::KeyBytes2;
         BloomFilterBuilder {
             hasher: RandomState::default(),
-            bitmap: CompressedBitmap::new(key_size_to_bits(size)),
+            bitmap: B::new_with_capacity(key_size_to_bits(size)),
             key_size: size,
         }
     }
@@ -313,16 +318,31 @@ where
     pub fn byte_size(&mut self) -> usize {
         self.bitmap.byte_size()
     }
+
+    pub fn bitmap(&self) -> &B {
+        &self.bitmap
+    }
 }
 
 impl<H, T> Bloom2<H, CompressedBitmap, T>
 where
     H: BuildHasher,
 {
-    /// Minimise the memory usage of this instance by by shrinking the
+    /// Minimise the memory usage of this instance by shrinking the
     /// underlying vectors, discarding their excess capacity.
     pub fn shrink_to_fit(&mut self) {
         self.bitmap.shrink_to_fit();
+    }
+}
+
+impl<H, T> Bloom2<H, BytesBitmap, T>
+where
+    H: BuildHasher,
+{
+    /// Minimise the memory usage of this instance by shrinking the
+    /// underlying vectors, discarding their excess capacity.
+    pub fn shrink_to_fit(&mut self) {
+        self.bitmap.shrink();
     }
 }
 
@@ -366,6 +386,7 @@ mod tests {
     use proptest::prelude::*;
     use quickcheck_macros::quickcheck;
 
+    use std::collections::hash_map::RandomState;
     use std::{
         cell::RefCell,
         collections::HashSet,
@@ -431,6 +452,16 @@ mod tests {
         let mut b = Bloom2::default();
         assert_eq!(b.key_size, FilterSize::KeyBytes2);
 
+        b.insert(&42);
+        assert!(b.contains(&42));
+    }
+
+    #[test]
+    fn test_with_bytesbitmap() {
+        let mut b: Bloom2<RandomState, BytesBitmap, i32> =
+            BloomFilterBuilder::<RandomState, BytesBitmap>::default()
+                .with_bitmap::<BytesBitmap>()
+                .build();
         b.insert(&42);
         assert!(b.contains(&42));
     }
@@ -608,6 +639,32 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "serde")]
+    #[test]
+    fn serde_bytes() {
+        type MyBuildHasher = BuildHasherDefault<twox_hash::XxHash64>;
+
+        let mut bloom_filter: Bloom2<MyBuildHasher, BytesBitmap, i32> =
+            BloomFilterBuilder::hasher(MyBuildHasher::default())
+                .with_bitmap()
+                .size(FilterSize::KeyBytes4)
+                .build();
+
+        for i in 0..10 {
+            bloom_filter.insert(&i);
+        }
+
+        let encoded = bincode::serialize(&bloom_filter).unwrap();
+        let decoded: Bloom2<MyBuildHasher, BytesBitmap, i32> =
+            bincode::deserialize(&encoded).unwrap();
+
+        assert_eq!(bloom_filter.bitmap, decoded.bitmap);
+
+        for i in 0..10 {
+            assert!(decoded.contains(&i), "didn't contain {}", i);
+        }
+    }
+
     /// Generate an arbitrary `usize` value.
     ///
     /// Prefers generating values from a small range to encourage collisions.
@@ -650,7 +707,7 @@ mod tests {
             values in prop::collection::vec(arbitrary_value(), 1..100),
             check in prop::collection::vec(arbitrary_value(), 1..100),
         ) {
-            let mut b = BloomFilterBuilder::default().with_bitmap::<VecBitmap>().build();
+            let mut b: Bloom2<RandomState, VecBitmap, usize> = BloomFilterBuilder::<RandomState, VecBitmap>::default().with_bitmap::<VecBitmap>().build();
 
             let mut control: HashSet<usize, RandomState> = HashSet::default();
             for v in values {
@@ -679,7 +736,7 @@ mod tests {
     where
         B: Bitmap,
     {
-        let mut b = BloomFilterBuilder::default().with_bitmap::<B>().build();
+        let mut b = BloomFilterBuilder::<RandomState, B>::default().with_bitmap::<B>().build();
 
         let mut control: HashSet<usize, RandomState> = HashSet::default();
         for op in ops {
