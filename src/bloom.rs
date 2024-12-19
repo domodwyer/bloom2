@@ -192,6 +192,8 @@ where
     hasher: H,
     bitmap: B,
     key_size: FilterSize,
+
+    #[cfg_attr(feature = "serde", serde(skip))]
     _key_type: PhantomData<T>,
 }
 

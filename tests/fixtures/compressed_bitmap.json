@@ -11,6 +11,5 @@
     ],
     "max_key": 256
   },
-  "key_size": "KeyBytes1",
-  "_key_type": null
+  "key_size": "KeyBytes1"
 }
