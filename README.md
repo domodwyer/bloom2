@@ -75,4 +75,8 @@ is not reusable in a different process; for serialised filters a different
 hasher should be used. By default, derived [`Hash`] implementation is not
 considered portable but a hand-wrote implementation can be.
 
+If you are using the `BytesBitmap` as your bitmap storage, it is recommended to use
+the `bincode` library due to performance reasons. In initial testing, using 
+`serde_json` was very slow to encode the bitmap.
+
 [`Hash`]: https://doc.rust-lang.org/stable/std/hash/trait.Hash.html#portability
