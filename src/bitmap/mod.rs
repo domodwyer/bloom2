@@ -4,9 +4,11 @@ mod bytes;
 mod compressed_bitmap;
 mod vec;
 
-pub use bytes::*;
 pub use compressed_bitmap::*;
 pub use vec::*;
+
+#[cfg(feature = "bytes")]
+pub use bytes::*;
 
 #[inline(always)]
 pub(crate) fn bitmask_for_key(key: usize) -> usize {

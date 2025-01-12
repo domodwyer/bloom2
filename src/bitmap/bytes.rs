@@ -1,6 +1,7 @@
+#![cfg(feature = "bytes")]
+
 use std::convert::TryInto;
 
-#[cfg(feature = "bytes")]
 use bytes::{BufMut, Bytes, BytesMut};
 
 use crate::{
@@ -19,14 +20,12 @@ use crate::{
 /// construct a new instance. [Serde] serialisation is also implemented as a
 /// conveinence to enable serialisation to various formats.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg(feature = "bytes")]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BytesBitmap {
     max_key: usize,
     bitmap: BytesMut,
 }
 
-#[cfg(feature = "bytes")]
 impl BytesBitmap {
     pub fn freeze(self) -> Bytes {
         self.bitmap.freeze()
@@ -45,7 +44,6 @@ impl BytesBitmap {
     }
 }
 
-#[cfg(feature = "bytes")]
 impl Bitmap for BytesBitmap {
     fn new_with_capacity(max_key: usize) -> Self {
         let size = (index_for_key(max_key) + 1) * size_of::<usize>();
@@ -107,7 +105,6 @@ impl Bitmap for BytesBitmap {
     }
 }
 
-#[cfg(feature = "bytes")]
 #[cfg(test)]
 mod tests {
     use proptest::prelude::*;
