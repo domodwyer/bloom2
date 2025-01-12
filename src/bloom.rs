@@ -1,5 +1,3 @@
-#[cfg(feature = "bytes")]
-use crate::bitmap::BytesBitmap;
 use crate::{bitmap::CompressedBitmap, FilterSize, VecBitmap};
 use std::collections::hash_map::RandomState;
 use std::hash::{BuildHasher, Hash};
@@ -370,6 +368,10 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(feature = "bytes")]
+    use crate::bitmap::BytesBitmap;
+
     use proptest::prelude::*;
     use quickcheck_macros::quickcheck;
 
