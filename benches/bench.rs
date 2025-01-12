@@ -208,6 +208,7 @@ pub fn insert_bench(c: &mut Criterion) {
     });
 }
 
+#[cfg(feature = "bytes")]
 criterion_group!(
     benches,
     basic_bench,
@@ -215,4 +216,8 @@ criterion_group!(
     bitmap_bench,
     bytes_bitmap_bench
 );
+
+#[cfg(not(feature = "bytes"))]
+criterion_group!(benches, basic_bench, insert_bench, bitmap_bench,);
+
 criterion_main!(benches);
