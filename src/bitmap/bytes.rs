@@ -1,17 +1,23 @@
-use crate::bitmap::{bitmask_for_key, index_for_key};
-use crate::{Bitmap};
-#[cfg(feature = "bytes")]
-use bytes::{BufMut, Bytes, BytesMut};
 use std::convert::TryInto;
 
-/// A plain, heap-allocated, `O(1)` indexed bitmap using `bytes::BytesMut` for storage.
+#[cfg(feature = "bytes")]
+use bytes::{BufMut, Bytes, BytesMut};
+
+use crate::{
+    bitmap::{bitmask_for_key, index_for_key},
+    Bitmap,
+};
+
+/// A plain, heap-allocated, `O(1)` indexed bitmap using `bytes::BytesMut` for
+/// storage.
 ///
-/// This type provide fast O(1) read and write operations, but trades O(n) space complexity for the
-/// additional performance.
+/// This type provide fast O(1) read and write operations, but trades O(n) space
+/// complexity for the additional performance.
 ///
-/// The [BytesBitmap] representation is suitable for persistence without the need for serialisation;
-/// the output of [BytesBitmap::freeze()] can be used to construct a new instance. [Serde]
-/// serialisation is also implemented as a conveinence to enable serialisation to various formats.
+/// The [BytesBitmap] representation is suitable for persistence without the
+/// need for serialisation; the output of [BytesBitmap::freeze()] can be used to
+/// construct a new instance. [Serde] serialisation is also implemented as a
+/// conveinence to enable serialisation to various formats.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg(feature = "bytes")]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -78,7 +84,7 @@ impl Bitmap for BytesBitmap {
     fn byte_size(&self) -> usize {
         self.bitmap.len()
     }
-    
+
     fn or(&self, other: &Self) -> Self {
         assert_eq!(self.bitmap.len(), other.bitmap.len());
 

@@ -1,6 +1,6 @@
-use crate::{bitmap::CompressedBitmap, FilterSize, VecBitmap};
 #[cfg(feature = "bytes")]
 use crate::bitmap::BytesBitmap;
+use crate::{bitmap::CompressedBitmap, FilterSize, VecBitmap};
 use std::collections::hash_map::RandomState;
 use std::hash::{BuildHasher, Hash};
 use std::marker::PhantomData;
@@ -446,10 +446,9 @@ mod tests {
     #[cfg(feature = "bytes")]
     #[test]
     fn test_with_bytesbitmap() {
-        let mut b: Bloom2<RandomState, BytesBitmap, i32> =
-            BloomFilterBuilder::default()
-                .with_bitmap::<BytesBitmap>()
-                .build();
+        let mut b: Bloom2<RandomState, BytesBitmap, i32> = BloomFilterBuilder::default()
+            .with_bitmap::<BytesBitmap>()
+            .build();
         b.insert(&42);
         assert!(b.contains(&42));
     }
@@ -725,9 +724,7 @@ mod tests {
     where
         B: Bitmap,
     {
-        let mut b = BloomFilterBuilder::default()
-            .with_bitmap::<B>()
-            .build();
+        let mut b = BloomFilterBuilder::default().with_bitmap::<B>().build();
 
         let mut control: HashSet<usize, RandomState> = HashSet::default();
         for op in ops {
