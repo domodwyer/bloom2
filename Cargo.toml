@@ -23,7 +23,7 @@ bytes = ["dep:bytes"]
 
 [dev-dependencies]
 bincode = "1.3"
-criterion = "0.5"
+criterion = "0.6"
 paste = "1.0.15"
 proptest = { version = "1.5.0" }
 quickcheck = "1.0"
